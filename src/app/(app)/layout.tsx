@@ -6,9 +6,7 @@ import { Topbar } from "@/components/layout/Topbar";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full overflow-hidden bg-slate-50 text-slate-950">
-      <div className="w-64 shrink-0 border-r border-slate-200 bg-white">
-        <Sidebar />
-      </div>
+      <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="shrink-0 border-b border-slate-200 bg-white">
