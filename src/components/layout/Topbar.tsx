@@ -1,8 +1,9 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 
+import { useAuthStore } from "@/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 
 const pageTitles: Record<string, string> = {
@@ -16,9 +17,16 @@ const pageTitles: Record<string, string> = {
 };
 
 export function Topbar() {
+  const router = useRouter();
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "FinTrack";
   const toggle = useSidebarStore((state) => state.toggle);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  const handleLogout = () => {
+    clearAuth();
+    router.push("/login");
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
@@ -50,6 +58,7 @@ export function Topbar() {
           type="button"
           className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
           aria-label="Logout"
+          onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
           <span className="hidden sm:inline">Logout</span>
