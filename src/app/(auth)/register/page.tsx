@@ -3,12 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { AxiosError } from "axios";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const registerSchema = z
@@ -23,17 +26,22 @@ const registerSchema = z
     path: ["confirmPassword"],
   });
 
-type RegisterFormValues = z.infer<typeof registerSchema>;
+type RegisterFormData = z.infer<typeof registerSchema>;
+type ApiErrorResponse = {
+  message?: string | string[];
+};
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterFormValues>({
+  } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       fullName: "",
@@ -43,8 +51,23 @@ export default function RegisterPage() {
     },
   });
 
-  const onSubmit = async (data: RegisterFormValues) => {
-    console.log(data);
+  const onSubmit = async (data: RegisterFormData) => {
+    try {
+      await api.post("/auth/register", {
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+      });
+      router.push("/login?registered=true");
+    } catch (error) {
+      const axiosError = error as AxiosError<ApiErrorResponse>;
+      const responseMessage = axiosError.response?.data?.message;
+      const message = Array.isArray(responseMessage)
+        ? responseMessage.join(", ")
+        : responseMessage || "Đăng ký thất bại, vui lòng thử lại";
+
+      setError("root", { message });
+    }
   };
 
   return (
@@ -173,6 +196,15 @@ export default function RegisterPage() {
             </p>
           ) : null}
         </div>
+
+        {errors.root?.message ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+          >
+            {errors.root.message}
+          </div>
+        ) : null}
 
         <Button
           type="submit"
