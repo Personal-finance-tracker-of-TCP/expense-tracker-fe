@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,9 +14,9 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useSidebarStore } from "@/store/sidebarStore";
 
 type SidebarProps = {
-	mobileOpen?: boolean;
 	className?: string;
 };
 
@@ -28,17 +29,54 @@ const navigationItems = [
 	{ href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
 ];
 
-export function Sidebar({ mobileOpen = false, className }: SidebarProps) {
+export function Sidebar({ className }: SidebarProps) {
 	const pathname = usePathname();
+	const isOpen = useSidebarStore((state) => state.isOpen);
+	const close = useSidebarStore((state) => state.close);
+	const toggle = useSidebarStore((state) => state.toggle);
+	const [isDesktop, setIsDesktop] = useState(false);
+
+	useEffect(() => {
+		const mediaQuery = window.matchMedia("(min-width: 768px)");
+
+		const updateBreakpoint = () => {
+			setIsDesktop(mediaQuery.matches);
+		};
+
+		updateBreakpoint();
+		mediaQuery.addEventListener("change", updateBreakpoint);
+
+		return () => mediaQuery.removeEventListener("change", updateBreakpoint);
+	}, []);
+
+	useEffect(() => {
+		if (!isDesktop || isOpen) {
+			return;
+		}
+
+		toggle();
+	}, [isDesktop, isOpen, toggle]);
+
+	const shouldShowBackdrop = !isDesktop && isOpen;
 
 	return (
-		<aside
-			className={cn(
-				"fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-900 text-white transition-transform duration-200 ease-out lg:static lg:translate-x-0",
-				mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-				className,
-			)}
-		>
+		<>
+			{shouldShowBackdrop ? (
+				<button
+					type="button"
+					aria-label="Close sidebar"
+					className="fixed inset-0 z-30 bg-slate-950/50 md:hidden"
+					onClick={close}
+				/>
+			) : null}
+
+			<aside
+				className={cn(
+					"fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-900 text-white transition-transform duration-200 ease-out md:static md:translate-x-0",
+					isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+					className,
+				)}
+			>
 			<div className="flex items-center gap-3 border-b border-gray-800 px-6 py-5">
 				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-400/25">
 					<Wallet className="h-5 w-5" />
@@ -90,6 +128,7 @@ export function Sidebar({ mobileOpen = false, className }: SidebarProps) {
 					</div>
 				</div>
 			</div>
-		</aside>
+			</aside>
+		</>
 	);
 }

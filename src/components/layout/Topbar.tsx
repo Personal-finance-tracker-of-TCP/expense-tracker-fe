@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
+
+import { useSidebarStore } from "@/store/sidebarStore";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -16,10 +18,20 @@ const pageTitles: Record<string, string> = {
 export function Topbar() {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "FinTrack";
+  const toggle = useSidebarStore((state) => state.toggle);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6">
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 md:hidden"
+          aria-label="Toggle sidebar"
+          onClick={toggle}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+
         <h1 className="truncate text-lg font-semibold text-slate-900">
           {title}
         </h1>
