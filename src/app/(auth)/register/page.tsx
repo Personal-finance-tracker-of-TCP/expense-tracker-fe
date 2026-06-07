@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 
 const registerSchema = z
   .object({
-    fullName: z.string().min(2, "Tên phải có ít nhất 2 ký tự"),
-    email: z.string().email("Email không hợp lệ"),
+    fullName: z.string().trim().min(2, "Tên phải có ít nhất 2 ký tự"),
+    email: z.string().trim().email("Email không hợp lệ"),
     password: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
     confirmPassword: z.string(),
   })
@@ -54,8 +54,8 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       await api.post("/auth/register", {
-        fullName: data.fullName,
-        email: data.email,
+        name: data.fullName.trim(),
+        email: data.email.trim().toLowerCase(),
         password: data.password,
       });
       router.push("/login?registered=true");

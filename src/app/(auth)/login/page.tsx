@@ -11,23 +11,38 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import api from "@/lib/api";
+import api, { API_URL } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthStore, type User } from "@/store/authStore";
 
 const loginSchema = z.object({
-  email: z.string().email("Email không hợp lệ"),
+  email: z.string().trim().email("Email không hợp lệ"),
   password: z.string().min(1, "Vui lòng nhập mật khẩu"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-type LoginResponse = {
-  user: User;
-  accessToken: string;
+type ApiResponse<T> = {
+  success?: boolean;
+  data?: T;
+  message?: string | string[];
+  user?: User;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
+};
+type AuthPayload = {
+  user?: User;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
 };
 type ApiErrorResponse = {
   message?: string | string[];
 };
+
+function normalizeMessage(message: string | string[] | undefined) {
+  return Array.isArray(message) ? message.join(", ") : message;
+}
 
 function GoogleIcon() {
   return (
@@ -61,20 +76,52 @@ function LoginForm() {
   });
 
   const onSubmit = async (data: LoginFormData) => {
+    const loginUrl = `${API_URL}/auth/login`;
+
     try {
-      const response = await api.post<LoginResponse>("/auth/login", {
-        email: data.email,
+      console.log("Login endpoint:", loginUrl);
+
+      const response = await api.post<ApiResponse<AuthPayload>>("/auth/login", {
+        email: data.email.trim().toLowerCase(),
         password: data.password,
       });
 
-      setAuth(response.data.user, response.data.accessToken);
+      const json = response.data;
+      console.log("Login response:", json);
+
+      if (json.success === false) {
+        throw new Error(normalizeMessage(json.message) || "Đăng nhập thất bại");
+      }
+
+      const accessToken =
+        json.data?.accessToken || json.accessToken || json.token || json.data?.token;
+      const refreshToken = json.data?.refreshToken || json.refreshToken;
+      const user = json.data?.user || json.user;
+
+      if (!accessToken) {
+        throw new Error("Backend không trả accessToken");
+      }
+
+      if (!user) {
+        throw new Error("Backend không trả thông tin user");
+      }
+
+      setAuth(user, accessToken, refreshToken);
       router.push("/dashboard");
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
-      const responseMessage = axiosError.response?.data?.message;
-      const message = Array.isArray(responseMessage)
-        ? responseMessage.join(", ")
-        : responseMessage || "Đăng nhập thất bại, vui lòng thử lại";
+      const responseMessage = normalizeMessage(axiosError.response?.data?.message);
+      const message =
+        responseMessage ||
+        (error instanceof Error ? error.message : undefined) ||
+        "Đăng nhập thất bại, vui lòng thử lại";
+
+      console.error("Login failed:", {
+        endpoint: loginUrl,
+        status: axiosError.response?.status,
+        response: axiosError.response?.data,
+        error,
+      });
 
       setError("root", { message });
     }

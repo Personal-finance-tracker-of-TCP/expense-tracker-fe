@@ -11,8 +11,11 @@ const pageTitles: Record<string, string> = {
   "/transactions": "Transactions",
   "/categories": "Categories",
   "/budget": "Budget",
+  "/budgets": "Budgets",
   "/reports": "Reports",
   "/ai-advisor": "AI Advisor",
+  "/admin/sepay-simulator": "SePay VA Simulator",
+  "/admin/sepay-logs": "SePay Logs",
   "/profile": "Profile",
 };
 

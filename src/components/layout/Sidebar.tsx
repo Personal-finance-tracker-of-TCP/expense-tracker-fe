@@ -6,9 +6,11 @@ import { usePathname } from "next/navigation";
 import {
 	ArrowLeftRight,
 	BarChart2,
+	BanknoteArrowDown,
 	LayoutDashboard,
 	PiggyBank,
 	Sparkles,
+	ScrollText,
 	Tag,
 	Wallet,
 } from "lucide-react";
@@ -24,9 +26,11 @@ const navigationItems = [
 	{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 	{ href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
 	{ href: "/categories", label: "Categories", icon: Tag },
-	{ href: "/budget", label: "Budget", icon: PiggyBank },
+	{ href: "/budgets", label: "Budgets", icon: PiggyBank },
 	{ href: "/reports", label: "Reports", icon: BarChart2 },
 	{ href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
+	{ href: "/admin/sepay-simulator", label: "SePay VA Simulator", icon: BanknoteArrowDown },
+	{ href: "/admin/sepay-logs", label: "SePay Logs", icon: ScrollText },
 ];
 
 export function Sidebar({ className }: SidebarProps) {
