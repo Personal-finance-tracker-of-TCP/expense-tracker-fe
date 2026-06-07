@@ -13,6 +13,7 @@ import {
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
 
 const plainRoutes = new Set(["/", "/login", "/register"]);
 
@@ -94,6 +95,8 @@ export function RouteChrome({ children }: { children: ReactNode }) {
           <span>Tài khoản</span>
         </Link>
       </nav>
+
+      <FloatingChatbot />
     </div>
   );
 }
