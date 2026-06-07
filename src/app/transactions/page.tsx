@@ -146,6 +146,14 @@ export default function TransactionsPage() {
           setUser(JSON.parse(rawUser));
         }
       } catch (e) { }
+
+      // Read filter from URL query params
+      const params = new URLSearchParams(window.location.search);
+      const catParam = params.get("category");
+      const filterParam = params.get("filter");
+      if (catParam === "UNCLASSIFIED" || filterParam === "uncategorized") {
+        setCategoryFilter("UNCLASSIFIED");
+      }
     }
   }, []);
 
