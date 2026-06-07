@@ -8,9 +8,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartMonth } from "@/types/dashboard";
 
-function shortMonth(m: string) {
-  // "2025-01" → "T1"
-  return "T" + parseInt(m.split("-")[1]);
+function shortMonth(month: number) {
+  return `T${month}`;
 }
 
 function formatTooltip(value: number) {
