@@ -1,7 +1,11 @@
 // src/app/(app)/dashboard/page.tsx
 import { serverFetch } from "@/lib/serverApi";
-import { redirect } from "next/navigation";
-import type { SummaryData, ChartMonth, Transaction, Budget } from "@/types/dashboard";
+import type {
+  SummaryData,
+  ChartData,
+  TransactionListResponse,
+  Budget,
+} from "@/types/dashboard";
 
 import SummaryCards from "./_components/SummaryCards";
 import SpendingChart from "./_components/SpendingChart";
@@ -13,38 +17,48 @@ export default async function DashboardPage() {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  let summary: SummaryData;
-  let chart: { data: ChartMonth[] };
-  let txRes: { data: Transaction[] };
-  let budgets: { data: Budget[] };
+  // Budget chưa có BE → dùng Promise.allSettled để không crash cả page
+  const [summaryRes, chartRes, txRes, budgetRes] = await Promise.allSettled([
+    serverFetch<{ success: boolean; data: SummaryData }>(
+      `/api/reports/summary?month=${month}&year=${year}`
+    ),
+    serverFetch<{ success: boolean; data: ChartData }>(
+      `/api/reports/chart?year=${year}`
+    ),
+    serverFetch<{ success: boolean; data: TransactionListResponse }>(
+      `/api/transactions?month=${month}&year=${year}&page=1&limit=5`
+    ),
+    serverFetch<{ success: boolean; data: Budget[] }>(`/api/budgets`),
+  ]);
 
-  try {
-    [summary, chart, txRes, budgets] = await Promise.all([
-      serverFetch<SummaryData>(`/api/reports/summary?month=${month}&year=${year}`),
-      serverFetch<{ data: ChartMonth[] }>(`/api/reports/chart?year=${year}`),
-      serverFetch<{ data: Transaction[] }>(
-        `/api/transactions?month=${month}&year=${year}&page=1&limit=5`
-      ),
-      serverFetch<{ data: Budget[] }>(`/api/budgets`),
-    ]);
-  } catch {
-    redirect("/login");
-  }
+  const summary =
+    summaryRes.status === "fulfilled" ? summaryRes.value.data : null;
+  const chart =
+    chartRes.status === "fulfilled" ? chartRes.value.data : null;
+  const transactions =
+    txRes.status === "fulfilled" ? txRes.value.data.transactions : [];
+  const budgets =
+    budgetRes.status === "fulfilled" ? budgetRes.value.data : [];
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Tổng quan</h1>
-        <p className="text-muted-foreground text-sm">Tháng {month}/{year}</p>
+        <p className="text-muted-foreground text-sm">
+          Tháng {month}/{year}
+        </p>
       </div>
-      <SummaryCards data={summary} />
+
+      {summary && <SummaryCards data={summary} />}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <SpendingChart data={chart.data} />
+          {chart && <SpendingChart data={chart.chartData} />}
         </div>
-        <BudgetProgress budgets={budgets.data} />
+        <BudgetProgress budgets={budgets} />
       </div>
-      <RecentTransactions transactions={txRes.data} />
+
+      <RecentTransactions transactions={transactions} />
     </div>
   );
 }
