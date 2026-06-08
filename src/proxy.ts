@@ -15,6 +15,9 @@ const protectedRoutes = [
 export function proxy(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
   const { pathname } = request.nextUrl;
+  console.log(
+    `=== Proxy executing === token: ${token ? "exists" : "none"}, path: ${pathname}`
+  );
 
   const isAuthPage =
     pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -23,7 +26,9 @@ export function proxy(request: NextRequest) {
   );
 
   if (!token && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("from", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (token && isAuthPage) {

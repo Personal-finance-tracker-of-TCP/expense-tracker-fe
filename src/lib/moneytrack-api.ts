@@ -8,6 +8,20 @@ export type ApiEnvelope<T> = {
   message?: string | string[];
 };
 
+export class ApiRequestError extends Error {
+  status: number;
+  url: string;
+  body: unknown;
+
+  constructor(message: string, status: number, url: string, body: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.url = url;
+    this.body = body;
+  }
+}
+
 export function getAccessToken(options?: { admin?: boolean }) {
   if (typeof window === "undefined") {
     return null;
@@ -46,7 +60,8 @@ export async function authFetch<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(getUrl(path), {
+  const url = getUrl(path);
+  const response = await fetch(url, {
     ...options,
     headers,
     credentials: "include",
@@ -56,9 +71,12 @@ export async function authFetch<T>(
     JsonRecord;
 
   if (!response.ok || json.success === false) {
-    throw new Error(
+    throw new ApiRequestError(
       normalizeMessage(json.message) ||
-        `Request failed with status ${response.status}`
+        `Request failed with status ${response.status}`,
+      response.status,
+      url,
+      json
     );
   }
 

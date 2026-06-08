@@ -21,7 +21,8 @@ interface AuthState {
 }
 
 const ACCESS_TOKEN_COOKIE = "access_token";
-const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
+// Khớp với thời gian hết hạn của JWT access token (15 phút)
+const ACCESS_TOKEN_MAX_AGE = 60 * 15;
 const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 const REFRESH_TOKEN_STORAGE_KEY = "refreshToken";
 const USER_STORAGE_KEY = "user";
@@ -102,6 +103,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: Boolean(storedAccessToken),
   setAuth: (user, accessToken, refreshToken) => {
     setAccessTokenCookie(accessToken);
+    console.log('has access_token cookie:', document.cookie.includes('access_token'));
     setStoredAuth(user, accessToken, refreshToken);
     set({
       user,
