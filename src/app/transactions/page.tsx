@@ -478,6 +478,23 @@ export default function TransactionsPage() {
         availableMonths={["2026-05", "2026-06", "2026-07"]}
       />
 
+      {/* SEPAY unclassified banner */}
+      {unclassifiedCount > 0 && categoryFilter !== "UNCLASSIFIED" && (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-800">
+            <AlertCircle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
+            Có <span className="font-extrabold text-amber-700">{unclassifiedCount}</span> giao dịch SePay chưa được phân loại
+          </div>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("UNCLASSIFIED")}
+            className="shrink-0 rounded-xl border border-amber-300 bg-white px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors"
+          >
+            Phân loại ngay
+          </button>
+        </div>
+      )}
+
       {/* List Container */}
       <div className="space-y-6 mt-2">
         {loading ? (

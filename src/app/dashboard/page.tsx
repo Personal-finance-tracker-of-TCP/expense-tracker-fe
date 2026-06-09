@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+
 import { getCurrentDemoPeriod } from "@/lib/moneytrack-api";
 import {
+  fetchBudgetProgress,
+  fetchCurrentUser,
   fetchDashboardSummary,
   fetchRecentTransactions,
-  fetchBudgetProgress,
   fetchSepayLogs,
-  getDevMockUser,
+  updateCurrentUserBalance,
+  type DashboardUser,
 } from "@/lib/dashboard-service";
+import { useAuthStore } from "@/store/authStore";
 
-// Modular Dashboard Components
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MonthlyReportCard } from "@/components/dashboard/MonthlyReportCard";
 import { WalletCard } from "@/components/dashboard/WalletCard";
@@ -18,17 +22,6 @@ import { BudgetOverviewCard } from "@/components/dashboard/BudgetOverviewCard";
 import { RecentTransactionsCard } from "@/components/dashboard/RecentTransactionsCard";
 import { SepaySyncCard } from "@/components/dashboard/SepaySyncCard";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
-
-type UserInfo = {
-  id?: string;
-  name?: string;
-  email?: string;
-  role?: string;
-  balance?: number | string;
-  sepayCode?: string | null;
-  bankAccountNumber?: string | null;
-  avatarUrl?: string | null;
-};
 
 type Summary = {
   totalIncome: number;
@@ -40,107 +33,106 @@ type Summary = {
 const { month: DEFAULT_MONTH, year: DEFAULT_YEAR } = getCurrentDemoPeriod();
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<UserInfo | null>(null);
+  const updateStoredUser = useAuthStore((state) => state.updateUser);
+  const [user, setUser] = useState<DashboardUser | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [sepayLogs, setSepayLogs] = useState<any[]>([]);
-
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [savingBalance, setSavingBalance] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMasked, setIsMasked] = useState(false);
 
-  // Load balance masking preferences and user storage
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const maskedPref = localStorage.getItem("balance_masked");
-      if (maskedPref === "true") {
-        setIsMasked(true);
-      }
+    if (typeof window === "undefined") return;
 
-      try {
-        const rawUser = localStorage.getItem("user");
-        let parsedUser: UserInfo | null = null;
-        if (rawUser) {
-          parsedUser = JSON.parse(rawUser);
-        }
-
-        // If in development mode and fields are missing or empty, merge with mockup user
-        if (process.env.NODE_ENV === "development") {
-          const devMockUser = getDevMockUser();
-          if (devMockUser) {
-            parsedUser = {
-              ...devMockUser,
-              ...parsedUser,
-              // If user is logged in, preserve their name and actual balance if present
-              name: parsedUser?.name || devMockUser.name,
-              balance: parsedUser?.balance !== undefined ? parsedUser.balance : devMockUser.balance,
-              sepayCode: parsedUser?.sepayCode || devMockUser.sepayCode,
-              bankAccountNumber: parsedUser?.bankAccountNumber || devMockUser.bankAccountNumber,
-            };
-          }
-        }
-        setUser(parsedUser);
-      } catch (err) {
-        console.error("Error reading stored user:", err);
-      }
-    }
+    setIsMasked(localStorage.getItem("balance_masked") === "true");
   }, []);
 
-  // Fetch Dashboard Data
-  useEffect(() => {
-    let active = true;
+  const persistUser = useCallback(
+    (nextUser: DashboardUser) => {
+      setUser(nextUser);
+      updateStoredUser(nextUser);
 
-    async function loadData() {
-      setLoading(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(nextUser));
+      }
+    },
+    [updateStoredUser]
+  );
+
+  const loadDashboardData = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (options?.silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
       try {
-        // Read user role to see if they can query real sepay logs
-        let isAdmin = false;
-        if (typeof window !== "undefined") {
-          try {
-            const rawUser = localStorage.getItem("user");
-            if (rawUser) {
-              const u = JSON.parse(rawUser);
-              isAdmin = u.role === "ADMIN";
-            }
-          } catch (e) { }
-        }
+        const currentUser = await fetchCurrentUser();
+        const isAdmin = currentUser.role === "ADMIN";
 
-        const [summaryData, transactionsData, budgetsData, logsData] = await Promise.all([
-          fetchDashboardSummary(DEFAULT_MONTH, DEFAULT_YEAR),
-          fetchRecentTransactions(DEFAULT_MONTH, DEFAULT_YEAR),
-          fetchBudgetProgress(DEFAULT_MONTH, DEFAULT_YEAR),
-          fetchSepayLogs(isAdmin),
-        ]);
+        const [summaryData, transactionsData, budgetsData, logsData] =
+          await Promise.all([
+            fetchDashboardSummary(DEFAULT_MONTH, DEFAULT_YEAR),
+            fetchRecentTransactions(DEFAULT_MONTH, DEFAULT_YEAR),
+            fetchBudgetProgress(DEFAULT_MONTH, DEFAULT_YEAR),
+            fetchSepayLogs(isAdmin),
+          ]);
 
-        if (!active) return;
-
+        persistUser(currentUser);
         setSummary(summaryData);
         setTransactions(transactionsData);
         setBudgets(budgetsData);
         setSepayLogs(logsData);
       } catch (err) {
-        if (active) {
-          console.error("Failed to load dashboard data:", err);
-          setError("Lỗi kết nối máy chủ. Vui lòng kiểm tra lại kết nối.");
-        }
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải dữ liệu Dashboard. Vui lòng thử lại."
+        );
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [persistUser]
+  );
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        loadDashboardData({ silent: true });
       }
     }
 
-    loadData();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
 
     return () => {
-      active = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
     };
-  }, []);
+  }, [loadDashboardData]);
 
-  // Handle balance visibility toggle
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        loadDashboardData({ silent: true });
+      }
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [loadDashboardData]);
+
   const handleToggleMask = () => {
     setIsMasked((prev) => {
       const newVal = !prev;
@@ -151,6 +143,18 @@ export default function DashboardPage() {
     });
   };
 
+  const handleUpdateBalance = async (balance: number) => {
+    setSavingBalance(true);
+    try {
+      const updatedUser = await updateCurrentUserBalance(balance);
+      persistUser(updatedUser);
+      toast.success("Đã cập nhật số dư ví chính.");
+      await loadDashboardData({ silent: true });
+    } finally {
+      setSavingBalance(false);
+    }
+  };
+
   if (loading) {
     return (
       <main className="mx-auto max-w-7xl px-2 py-4">
@@ -159,41 +163,33 @@ export default function DashboardPage() {
     );
   }
 
-  // Fallbacks if stats are null
   const totalIncome = summary?.totalIncome || 0;
   const totalExpense = summary?.totalExpense || 0;
-  const currentBalance = user?.balance !== undefined ? Number(user.balance) : (totalIncome - totalExpense);
-
-  // Update user balance dynamically if it's not set in local storage
-  const displayUser = user ? { ...user, balance: currentBalance } : null;
+  const currentBalance = Number(user?.balance) || 0;
 
   return (
     <main className="mx-auto max-w-7xl flex flex-col gap-6 px-1 py-3 sm:px-2">
-      {/* Error banner */}
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 shadow-sm flex items-center justify-between">
+        <div className="flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-semibold text-red-700 shadow-sm">
           <span>{error}</span>
           <button
-            onClick={() => window.location.reload()}
-            className="text-xs underline font-bold text-red-800 hover:text-red-900 ml-4 shrink-0"
+            onClick={() => loadDashboardData()}
+            className="ml-4 shrink-0 text-xs font-bold text-red-800 underline hover:text-red-900"
           >
-            Tải lại trang
+            Tải lại
           </button>
         </div>
       )}
 
-      {/* Dashboard Top Header Balance Hero */}
       <DashboardHeader
-        user={displayUser}
+        user={user}
         isMasked={isMasked}
         onToggleMask={handleToggleMask}
+        isRefreshing={refreshing}
       />
 
-      {/* 2 Column Responsive Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column - 8/12 width on Large Screens */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
-          {/* Monthly area chart card */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="flex flex-col gap-6 lg:col-span-8">
           <MonthlyReportCard
             transactions={transactions}
             totalIncome={totalIncome}
@@ -202,13 +198,10 @@ export default function DashboardPage() {
             year={DEFAULT_YEAR}
           />
 
-          {/* Recent transactions card */}
           <RecentTransactionsCard transactions={transactions} />
         </div>
 
-        {/* Right Column - 4/12 width on Large Screens */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          {/* Wallet Balance Summary Card */}
+        <div className="flex flex-col gap-6 lg:col-span-4">
           <WalletCard
             balance={currentBalance}
             bankAccountNumber={user?.bankAccountNumber || null}
@@ -216,15 +209,16 @@ export default function DashboardPage() {
             totalIncome={totalIncome}
             totalExpense={totalExpense}
             isMasked={isMasked}
+            isSaving={savingBalance}
+            onUpdateBalance={handleUpdateBalance}
           />
 
-          {/* Budget Progress Card */}
           <BudgetOverviewCard budgets={budgets} />
 
-          {/* SePay Sync Logs Card */}
           <SepaySyncCard
             sepayCode={user?.sepayCode || null}
             bankAccountNumber={user?.bankAccountNumber || null}
+            sepayLinkedAt={user?.sepayLinkedAt || null}
             logs={sepayLogs}
           />
         </div>

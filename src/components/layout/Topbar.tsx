@@ -5,6 +5,7 @@ import { LogOut, Menu } from "lucide-react";
 
 import { useAuthStore } from "@/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -16,6 +17,7 @@ const pageTitles: Record<string, string> = {
   "/ai-advisor": "AI Advisor",
   "/admin/sepay-simulator": "SePay VA Simulator",
   "/admin/sepay-logs": "SePay Logs",
+  "/admin/linked-users": "Người dùng liên kết",
   "/profile": "Profile",
 };
 
@@ -49,13 +51,7 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
-          aria-label="User menu"
-        >
-          NU
-        </button>
+        <NotificationBell />
 
         <button
           type="button"

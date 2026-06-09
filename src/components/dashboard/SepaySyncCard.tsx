@@ -1,7 +1,15 @@
 "use client";
 
-import React from "react";
-import { ArrowDown, ArrowUp, Zap, HelpCircle } from "lucide-react";
+import React, { useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  CheckCheck,
+  Copy,
+  HelpCircle,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import { EmptyState } from "./EmptyState";
 
 type SepayLog = {
@@ -18,26 +26,47 @@ type SepayLog = {
 type SepaySyncCardProps = {
   sepayCode: string | null;
   bankAccountNumber: string | null;
+  sepayLinkedAt?: string | null;
   logs: SepayLog[];
 };
+
+type CopyTarget = "bankAccountNumber" | "sepayCode" | null;
+
+const SANDBOX_DESCRIPTION =
+  "Tài khoản sandbox dùng để mô phỏng tài khoản ngân hàng trong môi trường BankHub Sandbox. Khi phát sinh giao dịch sandbox trên tài khoản này, hệ thống sẽ tự động đồng bộ giao dịch.";
+
+function formatVietnamDateTime(value?: string | null) {
+  if (!value) return "-";
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(value));
+}
 
 export function SepaySyncCard({
   sepayCode,
   bankAccountNumber,
+  sepayLinkedAt,
   logs,
 }: SepaySyncCardProps) {
-  // Format bank account: mask all but the last 4 digits
-  const formatBankAccount = (accountStr: string | null) => {
-    if (!accountStr) return "";
-    const cleanStr = accountStr.trim();
-    if (cleanStr.length <= 4) return cleanStr;
-    return `****${cleanStr.slice(-4)}`;
+  const [copied, setCopied] = useState<CopyTarget>(null);
+  const isLinked = Boolean(bankAccountNumber);
+
+  const handleCopy = (target: Exclude<CopyTarget, null>, text?: string | null) => {
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(target);
+      setTimeout(() => setCopied(null), 2000);
+    });
   };
 
-  const hasSePay = !!sepayCode;
-  const maskedBank = bankAccountNumber ? formatBankAccount(bankAccountNumber) : "";
-
-  // Map status values to Vietnamese labels and premium tailwind badge styles
   const getStatusBadge = (status: SepayLog["status"]) => {
     switch (status) {
       case "PROCESSED":
@@ -69,9 +98,9 @@ export function SepaySyncCard({
     }
   };
 
-  // Format log date: dd/MM/yyyy
   const formatLogDate = (dateStr?: string) => {
     if (!dateStr) return "-";
+
     try {
       const date = new Date(dateStr);
       const day = date.getDate().toString().padStart(2, "0");
@@ -83,19 +112,21 @@ export function SepaySyncCard({
     }
   };
 
-  if (!hasSePay) {
+  if (!isLinked) {
     return (
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-slate-800 text-base">SePay đồng bộ</h2>
-          <span className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+      <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-800">
+            SePay BankHub Sandbox
+          </h2>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
             Chưa liên kết
           </span>
         </div>
         <EmptyState
-          title="Chưa liên kết SePay"
-          description="Đồng bộ tự động các giao dịch ngân hàng qua cổng thanh toán SePay bằng mã định danh của bạn."
+          title="Chưa liên kết SePay BankHub Sandbox"
+          description={SANDBOX_DESCRIPTION}
           icon={<Zap className="h-6 w-6 text-slate-300" />}
         />
       </section>
@@ -105,41 +136,107 @@ export function SepaySyncCard({
   const hasLogs = logs && logs.length > 0;
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="font-bold text-slate-800 text-base">SePay đồng bộ</h2>
-        <span className="flex items-center gap-1.5 text-xs text-emerald-500 font-bold">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          Đang hoạt động
+    <section className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-bold text-slate-800">
+          Đã liên kết SePay BankHub Sandbox
+        </h2>
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-bold text-emerald-600">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          Đã liên kết
         </span>
       </div>
 
-      {/* Gateway Connection Details Card */}
-      <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-4 mt-1">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 bg-slate-900 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md">
-            <Zap className="h-4 w-4 fill-amber-400 text-amber-400" />
+      <p className="text-xs leading-5 text-slate-500">{SANDBOX_DESCRIPTION}</p>
+
+      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm">
+            <ShieldCheck className="h-4 w-4 text-emerald-300" />
           </div>
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              Mã SePay
-            </p>
-            <p className="text-sm font-extrabold text-slate-800">{sepayCode}</p>
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase text-slate-400">
+                Ngân hàng
+              </p>
+              <p className="text-sm font-extrabold text-slate-800">
+                SePay BankHub Sandbox
+              </p>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase text-slate-400">
+                    Tài khoản sandbox
+                  </p>
+                  <p className="break-all text-sm font-extrabold text-slate-800">
+                    {bankAccountNumber}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy("bankAccountNumber", bankAccountNumber)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:text-slate-900"
+                  aria-label="Sao chép tài khoản sandbox"
+                  title="Sao chép tài khoản sandbox"
+                >
+                  {copied === "bankAccountNumber" ? (
+                    <CheckCheck className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase text-slate-400">
+                    Mã chuyển khoản tiền thật
+                  </p>
+                  <p className="break-all text-sm font-extrabold text-slate-800">
+                    {sepayCode || "-"}
+                  </p>
+                </div>
+                {sepayCode ? (
+                  <button
+                    type="button"
+                    onClick={() => handleCopy("sepayCode", sepayCode)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:text-slate-900"
+                    aria-label="Sao chép mã chuyển khoản tiền thật"
+                    title="Sao chép mã chuyển khoản tiền thật"
+                  >
+                    {copied === "sepayCode" ? (
+                      <CheckCheck className="h-4 w-4 text-emerald-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-slate-400">
+                  Trạng thái
+                </p>
+                <p className="text-xs font-bold text-emerald-600">Đã liên kết</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase text-slate-400">
+                  Liên kết lúc
+                </p>
+                <p className="text-xs font-bold text-slate-700">
+                  {formatVietnamDateTime(sepayLinkedAt)}
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-            Ngân hàng
-          </p>
-          <p className="text-sm font-extrabold text-slate-800">
-            VCB {maskedBank}
-          </p>
         </div>
       </div>
 
-      {/* Logs List */}
-      <div className="divide-y divide-slate-100 mt-2">
+      <div className="mt-1 divide-y divide-slate-100">
         {hasLogs ? (
           logs.slice(0, 3).map((log) => {
             const isIncoming = log.transferType === "IN";
@@ -148,15 +245,14 @@ export function SepaySyncCard({
             return (
               <div
                 key={log.id}
-                className="flex items-center justify-between gap-3 py-3 hover:bg-slate-50/30 px-1 -mx-1 rounded-xl transition-colors duration-150"
+                className="-mx-1 flex items-center justify-between gap-3 rounded-xl px-1 py-3 transition-colors duration-150 hover:bg-slate-50/30"
               >
-                {/* Arrow Icon and Note */}
-                <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 border ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${
                       isIncoming
-                        ? "bg-blue-50 text-blue-500 border-blue-100"
-                        : "bg-amber-50 text-amber-500 border-amber-100"
+                        ? "border-blue-100 bg-blue-50 text-blue-500"
+                        : "border-amber-100 bg-amber-50 text-amber-500"
                     }`}
                   >
                     {isIncoming ? (
@@ -166,17 +262,16 @@ export function SepaySyncCard({
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-700 truncate leading-snug">
-                      {log.content || "Chuyển tiền tự động"}
+                    <p className="truncate text-xs font-bold leading-snug text-slate-700">
+                      {log.content || "Giao dịch sandbox tự động"}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5 leading-none">
+                    <p className="mt-0.5 text-[10px] font-semibold leading-none text-slate-400">
                       {formatLogDate(log.transactionDate)}
                     </p>
                   </div>
                 </div>
 
-                {/* Amount and Status */}
-                <div className="text-right shrink-0 flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-3 text-right">
                   <span
                     className={`text-xs font-bold tabular-nums ${
                       isIncoming ? "text-blue-600" : "text-rose-500"
@@ -189,7 +284,7 @@ export function SepaySyncCard({
                     }).format(Number(log.transferAmount))}
                   </span>
                   <span
-                    className={`rounded-lg px-2 py-0.5 text-[9px] font-bold border ${badge.classes}`}
+                    className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold ${badge.classes}`}
                   >
                     {badge.label}
                   </span>
@@ -199,9 +294,9 @@ export function SepaySyncCard({
           })
         ) : (
           <EmptyState
-            title="Chưa nhận được giao dịch SePay"
-            description="Các giao dịch tự động chuyển khoản tới ví của bạn sẽ xuất hiện tại đây."
-            icon={<Zap className="h-6 w-6 text-slate-300" />}
+            title="Chưa nhận được giao dịch sandbox"
+            description="Các giao dịch phát sinh trên tài khoản BankHub Sandbox sẽ xuất hiện tại đây."
+            icon={<HelpCircle className="h-6 w-6 text-slate-300" />}
           />
         )}
       </div>

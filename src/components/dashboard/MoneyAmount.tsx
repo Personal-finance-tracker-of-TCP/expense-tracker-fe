@@ -4,11 +4,10 @@ import React from "react";
 
 export function formatCurrency(value: unknown): string {
   const num = Number(value);
-  if (isNaN(num)) return "0\u00a0\u20ab";
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(num);
+  if (isNaN(num)) return "0 đ";
+  return `${new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 0,
+  }).format(num)} đ`;
 }
 
 type MoneyAmountProps = {

@@ -1,10 +1,27 @@
-import axios from "axios";
-import type { AxiosError, InternalAxiosRequestConfig } from "axios";
+import axios, { AxiosHeaders } from "axios";
+import type {
+  AxiosError,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from "axios";
+import { toast } from "sonner";
 
 import { useAuthStore } from "@/store/authStore";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
+const REFRESH_ENDPOINT = "/auth/refresh";
+const SESSION_EXPIRED_MESSAGE =
+  "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+const AUTH_STORAGE_KEYS = [
+  "accessToken",
+  "refreshToken",
+  "user",
+  "authUser",
+  "currentUser",
+  "adminAccessToken",
+];
 
 const api = axios.create({
   baseURL: API_URL,
@@ -13,6 +30,28 @@ const api = axios.create({
   },
   withCredentials: true,
 });
+
+interface RetryableRequest extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+type AuthResponse = {
+  data?: {
+    accessToken?: string;
+    refreshToken?: string;
+    token?: string;
+  };
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
+};
+
+let refreshPromise: Promise<{
+  accessToken: string;
+  refreshToken?: string;
+}> | null = null;
+let sessionExpiredNotified = false;
+let sessionExpiredRedirecting = false;
 
 function getStoredAccessToken() {
   if (typeof window === "undefined") return null;
@@ -24,87 +63,221 @@ function getStoredRefreshToken() {
   return localStorage.getItem("refreshToken");
 }
 
-// Đánh dấu request đang retry để tránh vòng lặp vô tận
-interface RetryableRequest extends InternalAxiosRequestConfig {
-  _retry?: boolean;
+function removeStoredAuthKeys() {
+  if (typeof window === "undefined") return;
+
+  for (const key of AUTH_STORAGE_KEYS) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
 }
 
-// ── Request interceptor: gắn access token vào mọi request ─────────────────
+function getRequestPath(config: Pick<AxiosRequestConfig, "baseURL" | "url">) {
+  const url = config.url || "";
+
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return url;
+    }
+  }
+
+  return url.startsWith("/") ? url : `/${url}`;
+}
+
+function isAuthEndpoint(config: Pick<AxiosRequestConfig, "baseURL" | "url">) {
+  const path = getRequestPath(config).split(/[?#]/)[0].replace(/\/+$/, "");
+
+  return [
+    "/auth/login",
+    "/auth/register",
+    "/auth/refresh",
+    "/auth/logout",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+    "/api/auth/logout",
+  ].includes(path);
+}
+
+function shouldSkipAuthHeader(config: Pick<AxiosRequestConfig, "baseURL" | "url">) {
+  const path = getRequestPath(config).split(/[?#]/)[0].replace(/\/+$/, "");
+
+  return [
+    "/auth/login",
+    "/auth/register",
+    "/auth/refresh",
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+  ].includes(path);
+}
+
+function hasAuthorizationHeader(config: InternalAxiosRequestConfig) {
+  const headers = config.headers;
+  if (!headers) return false;
+
+  if (headers instanceof AxiosHeaders) {
+    return headers.has("Authorization") || headers.has("authorization");
+  }
+
+  const headerRecord = headers as Record<string, unknown>;
+  return Boolean(headerRecord.Authorization || headerRecord.authorization);
+}
+
+function setAuthorizationHeader(
+  config: InternalAxiosRequestConfig,
+  accessToken: string
+) {
+  if (!config.headers) {
+    config.headers = new AxiosHeaders();
+  }
+
+  if (config.headers instanceof AxiosHeaders) {
+    config.headers.set("Authorization", `Bearer ${accessToken}`);
+    return;
+  }
+
+  (config.headers as Record<string, string>).Authorization =
+    `Bearer ${accessToken}`;
+}
+
+function extractAccessToken(data: AuthResponse) {
+  return (
+    data?.data?.accessToken ||
+    data?.accessToken ||
+    data?.token ||
+    data?.data?.token ||
+    null
+  );
+}
+
+function extractRefreshToken(data: AuthResponse) {
+  return data?.data?.refreshToken || data?.refreshToken || null;
+}
+
+function notifySessionExpiredOnce() {
+  if (sessionExpiredNotified) return;
+
+  sessionExpiredNotified = true;
+  toast.warning(SESSION_EXPIRED_MESSAGE);
+}
+
+function redirectToLoginAfterToast() {
+  if (typeof window === "undefined" || sessionExpiredRedirecting) return;
+
+  const { pathname, search, hash } = window.location;
+  if (pathname === "/login") return;
+
+  sessionExpiredRedirecting = true;
+  const currentPath = `${pathname}${search}${hash}`;
+  const loginUrl = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
+
+  window.setTimeout(() => {
+    window.location.assign(loginUrl);
+  }, 800);
+}
+
+function expireSession() {
+  useAuthStore.getState().clearAuth();
+  removeStoredAuthKeys();
+  notifySessionExpiredOnce();
+  redirectToLoginAfterToast();
+}
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    const refreshToken = getStoredRefreshToken();
+
+    if (!refreshToken) {
+      return Promise.reject(new Error("Missing refresh token"));
+    }
+
+    refreshPromise = axios
+      .post<AuthResponse>(
+        `${API_URL}${REFRESH_ENDPOINT}`,
+        { refreshToken },
+        { withCredentials: true }
+      )
+      .then((response) => {
+        const accessToken = extractAccessToken(response.data);
+
+        if (!accessToken) {
+          throw new Error("Missing access token in refresh response");
+        }
+
+        return {
+          accessToken,
+          refreshToken: extractRefreshToken(response.data) || refreshToken,
+        };
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+function persistRefreshedTokens(accessToken: string, refreshToken?: string) {
+  const { user, setAuth } = useAuthStore.getState();
+
+  if (user) {
+    setAuth(user, accessToken, refreshToken);
+    return;
+  }
+
+  if (typeof window === "undefined") return;
+
+  localStorage.setItem("accessToken", accessToken);
+  if (refreshToken) {
+    localStorage.setItem("refreshToken", refreshToken);
+  }
+}
+
 api.interceptors.request.use((config) => {
+  if (shouldSkipAuthHeader(config) || hasAuthorizationHeader(config)) {
+    return config;
+  }
+
   const accessToken =
     useAuthStore.getState().accessToken || getStoredAccessToken();
 
   if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+    setAuthorizationHeader(config, accessToken);
   }
 
   return config;
 });
 
-// ── Response interceptor: tự động refresh token khi nhận 401 ──────────────
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as RetryableRequest;
+    const originalRequest = error.config as RetryableRequest | undefined;
 
-    // Chỉ xử lý lỗi 401 và chỉ retry 1 lần
-    if (
-      error.response?.status !== 401 ||
-      originalRequest._retry ||
-      !originalRequest
-    ) {
+    if (!originalRequest || error.response?.status !== 401) {
       return Promise.reject(error);
     }
 
-    // Không retry chính request /auth/refresh để tránh loop
-    if (originalRequest.url?.includes("/auth/refresh")) {
-      useAuthStore.getState().clearAuth();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+    if (isAuthEndpoint(originalRequest)) {
+      return Promise.reject(error);
+    }
+
+    if (originalRequest._retry) {
+      expireSession();
       return Promise.reject(error);
     }
 
     originalRequest._retry = true;
 
-    const refreshToken = getStoredRefreshToken();
-
-    if (!refreshToken) {
-      useAuthStore.getState().clearAuth();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
-      return Promise.reject(error);
-    }
-
     try {
-      // Gọi trực tiếp axios (không dùng api instance) để tránh interceptor loop
-      const { data } = await axios.post(`${API_URL}/auth/refresh`, {
-        refreshToken,
-      });
-
-      const newAccessToken: string =
-        data?.data?.accessToken || data?.accessToken;
-
-      if (!newAccessToken) throw new Error("No access token in refresh response");
-
-      // Cập nhật store và localStorage với token mới
-      const { user } = useAuthStore.getState();
-      if (user) {
-        useAuthStore.getState().setAuth(user, newAccessToken, data?.data?.refreshToken || data?.refreshToken || refreshToken);
-      } else {
-        localStorage.setItem("accessToken", newAccessToken);
-      }
-
-      // Retry request gốc với token mới
-      originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+      const { accessToken, refreshToken } = await refreshAccessToken();
+      persistRefreshedTokens(accessToken, refreshToken);
+      setAuthorizationHeader(originalRequest, accessToken);
       return api(originalRequest);
     } catch {
-      // Refresh thất bại → đăng xuất và chuyển về login
-      useAuthStore.getState().clearAuth();
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      expireSession();
       return Promise.reject(error);
     }
   }

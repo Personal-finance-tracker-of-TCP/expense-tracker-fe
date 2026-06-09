@@ -51,11 +51,11 @@ export function DashboardSkeleton() {
             </div>
             <div className="h-[220px] bg-slate-50 border border-slate-100 rounded-2xl flex items-end p-4">
               <div className="w-full flex items-end justify-between gap-2">
-                {Array.from({ length: 12 }).map((_, i) => (
+                {[25, 40, 58, 82, 60, 50, 67, 63, 33, 64, 31, 41].map((h, i) => (
                   <div
                     key={i}
                     className="bg-slate-200 rounded-t w-full"
-                    style={{ height: `${Math.random() * 80 + 20}%` }}
+                    style={{ height: `${h}%` }}
                   ></div>
                 ))}
               </div>

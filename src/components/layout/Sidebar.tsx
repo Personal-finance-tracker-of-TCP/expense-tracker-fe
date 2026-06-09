@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   Menu,
+  Users,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -80,6 +81,7 @@ export function Sidebar({ className }: SidebarProps) {
   const adminItems = [
     { href: "/admin/sepay-simulator", label: "SePay Simulator", icon: Shield },
     { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
+    { href: "/admin/linked-users", label: "Người dùng liên kết", icon: Users },
   ];
 
   const shouldShowBackdrop = !isDesktop && isOpen;
