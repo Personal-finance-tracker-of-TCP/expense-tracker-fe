@@ -4,131 +4,240 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-	ArrowLeftRight,
-	BarChart2,
-	LayoutDashboard,
-	PiggyBank,
-	Sparkles,
-	Tag,
-	Wallet,
+  LayoutDashboard,
+  ArrowLeftRight,
+  Tag,
+  PiggyBank,
+  BarChart2,
+  Sparkles,
+  User,
+  Settings,
+  Shield,
+  Users,
+  MessageSquareText,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useSidebarStore } from "@/store/sidebarStore";
 
 type SidebarProps = {
-	className?: string;
+  className?: string;
 };
 
-const navigationItems = [
-	{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-	{ href: "/transactions", label: "Transactions", icon: ArrowLeftRight },
-	{ href: "/categories", label: "Categories", icon: Tag },
-	{ href: "/budget", label: "Budget", icon: PiggyBank },
-	{ href: "/reports", label: "Reports", icon: BarChart2 },
-	{ href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
-];
+type UserInfo = {
+  name?: string;
+  email?: string;
+  role?: "ADMIN" | "USER";
+  avatarUrl?: string;
+};
+
+function getStoredSidebarUser() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawUser = localStorage.getItem("user");
+    return rawUser ? (JSON.parse(rawUser) as UserInfo) : null;
+  } catch (error) {
+    console.error("Error reading user storage", error);
+    return null;
+  }
+}
 
 export function Sidebar({ className }: SidebarProps) {
-	const pathname = usePathname();
-	const isOpen = useSidebarStore((state) => state.isOpen);
-	const close = useSidebarStore((state) => state.close);
-	const toggle = useSidebarStore((state) => state.toggle);
-	const [isDesktop, setIsDesktop] = useState(false);
+  const pathname = usePathname();
+  const isOpen = useSidebarStore((state) => state.isOpen);
+  const close = useSidebarStore((state) => state.close);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
 
-	useEffect(() => {
-		const mediaQuery = window.matchMedia("(min-width: 768px)");
+  useEffect(() => {
+    const userLoadTimer = window.setTimeout(() => {
+      setCurrentUser(getStoredSidebarUser());
+    }, 0);
 
-		const updateBreakpoint = () => {
-			setIsDesktop(mediaQuery.matches);
-		};
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
+    const updateBreakpoint = () => {
+      setIsDesktop(mediaQuery.matches);
+    };
 
-		updateBreakpoint();
-		mediaQuery.addEventListener("change", updateBreakpoint);
+    updateBreakpoint();
+    mediaQuery.addEventListener("change", updateBreakpoint);
 
-		return () => mediaQuery.removeEventListener("change", updateBreakpoint);
-	}, []);
+    return () => {
+      window.clearTimeout(userLoadTimer);
+      mediaQuery.removeEventListener("change", updateBreakpoint);
+    };
+  }, []);
 
-	useEffect(() => {
-		if (!isDesktop || isOpen) {
-			return;
-		}
+  const isAdmin = currentUser?.role === "ADMIN";
 
-		toggle();
-	}, [isDesktop, isOpen, toggle]);
+  const navigationItems = [
+    { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
+    { href: "/transactions", label: "Giao dịch", icon: ArrowLeftRight },
+    { href: "/categories", label: "Danh mục", icon: Tag },
+    { href: "/budgets", label: "Ngân sách", icon: PiggyBank },
+    { href: "/reports", label: "Báo cáo", icon: BarChart2 },
+    { href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
+    { href: "/feedback", label: "Feedback", icon: MessageSquareText },
+  ];
 
-	const shouldShowBackdrop = !isDesktop && isOpen;
+  const bottomItems = [
+    { href: "/profile", label: "Tài khoản", icon: User },
+    { href: "/profile#settings", label: "Cài đặt", icon: Settings },
+  ];
 
-	return (
-		<>
-			{shouldShowBackdrop ? (
-				<button
-					type="button"
-					aria-label="Close sidebar"
-					className="fixed inset-0 z-30 bg-slate-950/50 md:hidden"
-					onClick={close}
-				/>
-			) : null}
+  const adminItems = [
+    { href: "/admin/platform-statistics", label: "Thống kê nền tảng", icon: BarChart2 },
+    { href: "/admin/bankhub-sandbox", label: "BankHub Sandbox", icon: Shield },
+    { href: "/admin/sepay-simulator", label: "SePay Simulator", icon: Shield },
+    { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
+    { href: "/admin/linked-users", label: "Người dùng liên kết", icon: Users },
+  ];
 
-			<aside
-				className={cn(
-					"fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col border-r border-gray-800 bg-gray-900 text-white transition-transform duration-200 ease-out md:static md:translate-x-0",
-					isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
-					className,
-				)}
-			>
-			<div className="flex items-center gap-3 border-b border-gray-800 px-6 py-5">
-				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 ring-1 ring-inset ring-emerald-400/25">
-					<Wallet className="h-5 w-5" />
-				</div>
-				<div>
-					<p className="text-sm font-semibold tracking-[0.2em] text-gray-300 uppercase">
-						FinTrack
-					</p>
-					<p className="text-xs text-gray-400">Expense management</p>
-				</div>
-			</div>
+  const shouldShowBackdrop = !isDesktop && isOpen;
 
-			<nav className="flex-1 px-3 py-5">
-				<ul className="space-y-1">
-					{navigationItems.map((item) => {
-						const isActive =
-							pathname === item.href || pathname.startsWith(`${item.href}/`);
-						const Icon = item.icon;
+  return (
+    <>
+      {shouldShowBackdrop ? (
+        <button
+          type="button"
+          aria-label="Close sidebar"
+          className="fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm md:hidden"
+          onClick={close}
+        />
+      ) : null}
 
-						return (
-							<li key={item.href}>
-								<Link
-									href={item.href}
-									aria-current={isActive ? "page" : undefined}
-									className={cn(
-										"flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors",
-										isActive
-											? "bg-white/10 text-white shadow-sm"
-											: "text-gray-300 hover:bg-white/5 hover:text-white",
-									)}
-								>
-									<Icon className="h-4 w-4 shrink-0" />
-									<span>{item.label}</span>
-								</Link>
-							</li>
-						);
-					})}
-				</ul>
-			</nav>
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col bg-[#131926] text-white border-r border-slate-800/55 transition-transform duration-200 ease-out md:static md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          className
+        )}
+      >
+        {/* Logo MoneyTrack */}
+        <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-800/40">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20 text-white">
+            <svg
+              className="h-4.5 w-4.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth="2.5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.5a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75h-3.5a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"
+              />
+            </svg>
+          </div>
+          <span className="text-lg font-bold tracking-tight text-white">
+            MoneyTrack
+          </span>
+        </div>
 
-			<div className="border-t border-gray-800 px-4 py-5">
-				<div className="flex items-center gap-3 rounded-2xl bg-white/5 px-3 py-3">
-					<div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-sm font-semibold text-white">
-						ND
-					</div>
-					<div className="min-w-0">
-						<p className="truncate text-sm font-medium text-white">Người dùng</p>
-						<p className="truncate text-xs text-gray-400">user@example.com</p>
-					</div>
-				</div>
-			</div>
-			</aside>
-		</>
-	);
+        {/* Menu Navigation */}
+        <nav className="flex-1 px-4 py-6 overflow-y-auto space-y-7">
+          <div>
+            <span className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-3">
+              Menu chính
+            </span>
+            <ul className="space-y-1.5">
+              {navigationItems.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                const Icon = item.icon;
+
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={() => {
+                        if (!isDesktop) close();
+                      }}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
+                        isActive
+                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/15"
+                          : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-4.5 w-4.5 shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Admin panel in sidebar for ease of testing */}
+          {isAdmin && (
+            <div>
+              <span className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-3">
+                Quản trị viên
+              </span>
+              <ul className="space-y-1.5">
+                {adminItems.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  const Icon = item.icon;
+
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={() => {
+                          if (!isDesktop) close();
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
+                          isActive
+                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/15"
+                            : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+                        )}
+                      >
+                        <Icon className="h-4.5 w-4.5 shrink-0" />
+                        <span>{item.label}</span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </nav>
+
+        {/* Bottom Menu items */}
+        <div className="p-4 border-t border-slate-800/40 space-y-1.5">
+          {bottomItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "#");
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => {
+                  if (!isDesktop) close();
+                }}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
+                  isActive
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+                )}
+              >
+                <Icon className="h-4.5 w-4.5 shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </aside>
+    </>
+  );
 }
+export const AppSidebar = Sidebar;

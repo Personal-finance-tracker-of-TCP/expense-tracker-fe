@@ -1,6 +1,8 @@
 import Link from "next/link";
 import {
+  Activity,
   BarChart2,
+  Database,
   FileText,
   PiggyBank,
   Sparkles,
@@ -45,13 +47,14 @@ const features: {
   },
 ];
 
+// Landing page is statically rendered because marketing feature content changes rarely.
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col bg-gradient-to-b from-white via-slate-50 to-white text-slate-950 [font-family:var(--font-geist-sans),ui-sans-serif,system-ui,sans-serif]">
       <section className="flex flex-1 items-center justify-center px-6 py-24 sm:py-28 lg:px-8">
         <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-          <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl">
-            FinTrack
+          <h1 className="bg-gradient-to-r from-emerald-500 to-emerald-700 bg-clip-text text-5xl font-bold tracking-tight text-transparent sm:text-6xl lg:text-7xl">
+            MoneyTrack
           </h1>
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600 sm:text-xl">
             Quản lý chi tiêu thông minh — theo dõi thu chi, lập ngân sách, và
@@ -62,7 +65,7 @@ export default function Home() {
               href="/register"
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "h-11 rounded-lg bg-blue-600 px-6 text-base font-semibold text-white shadow-sm hover:bg-blue-700"
+                "h-11 rounded-lg bg-emerald-600 px-6 text-base font-semibold text-white shadow-sm hover:bg-emerald-700"
               )}
             >
               Bắt đầu miễn phí
@@ -97,7 +100,7 @@ export default function Home() {
                   className="rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
                 >
                   <CardHeader>
-                    <div className="mb-2 flex size-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <div className="mb-2 flex size-11 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
                       <Icon className="size-5" aria-hidden="true" />
                     </div>
                     <CardTitle className="text-lg font-semibold text-slate-950">
@@ -116,8 +119,10 @@ export default function Home() {
         </div>
       </section>
 
+      
+
       <footer className="px-6 py-8 text-center text-sm text-slate-500">
-        © 2026 FinTrack. Được xây dựng với ❤️ bởi nhóm sinh viên PTIT.
+        © 2026 MoneyTrack. Được xây dựng với ❤️ bởi nhóm sinh viên PTIT.
       </footer>
     </main>
   );

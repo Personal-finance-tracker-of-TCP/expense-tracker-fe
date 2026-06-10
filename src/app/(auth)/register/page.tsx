@@ -16,8 +16,8 @@ import { cn } from "@/lib/utils";
 
 const registerSchema = z
   .object({
-    fullName: z.string().min(2, "Tên phải có ít nhất 2 ký tự"),
-    email: z.string().email("Email không hợp lệ"),
+    fullName: z.string().trim().min(2, "Tên phải có ít nhất 2 ký tự"),
+    email: z.string().trim().email("Email không hợp lệ"),
     password: z.string().min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
     confirmPassword: z.string(),
   })
@@ -30,6 +30,10 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 type ApiErrorResponse = {
   message?: string | string[];
 };
+
+function normalizeMessage(message: string | string[] | undefined) {
+  return Array.isArray(message) ? message.join(", ") : message;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -54,17 +58,16 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       await api.post("/auth/register", {
-        fullName: data.fullName,
-        email: data.email,
+        name: data.fullName.trim(),
+        email: data.email.trim().toLowerCase(),
         password: data.password,
       });
       router.push("/login?registered=true");
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
-      const responseMessage = axiosError.response?.data?.message;
-      const message = Array.isArray(responseMessage)
-        ? responseMessage.join(", ")
-        : responseMessage || "Đăng ký thất bại, vui lòng thử lại";
+      const message =
+        normalizeMessage(axiosError.response?.data?.message) ||
+        "Đăng ký thất bại, vui lòng thử lại";
 
       setError("root", { message });
     }
@@ -77,16 +80,13 @@ export default function RegisterPage() {
           Tạo tài khoản mới
         </h1>
         <p className="text-sm leading-6 text-slate-500">
-          Bắt đầu theo dõi chi tiêu và tối ưu ngân sách cùng FinTrack.
+          Bắt đầu theo dõi chi tiêu và tối ưu ngân sách cùng MoneyTrack.
         </p>
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
-          <label
-            htmlFor="fullName"
-            className="text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="fullName" className="text-sm font-medium text-slate-700">
             Họ và tên
           </label>
           <Input
@@ -95,7 +95,7 @@ export default function RegisterPage() {
             placeholder="Nguyễn Văn A"
             autoComplete="name"
             aria-invalid={Boolean(errors.fullName)}
-            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
             {...register("fullName")}
           />
           {errors.fullName ? (
@@ -113,7 +113,7 @@ export default function RegisterPage() {
             placeholder="you@example.com"
             autoComplete="email"
             aria-invalid={Boolean(errors.email)}
-            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
             {...register("email")}
           />
           {errors.email ? (
@@ -122,10 +122,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="password" className="text-sm font-medium text-slate-700">
             Mật khẩu
           </label>
           <div className="relative">
@@ -135,13 +132,13 @@ export default function RegisterPage() {
               placeholder="Ít nhất 8 ký tự"
               autoComplete="new-password"
               aria-invalid={Boolean(errors.password)}
-              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
               {...register("password")}
             />
             <button
               type="button"
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
               onClick={() => setShowPassword((value) => !value)}
             >
               {showPassword ? (
@@ -170,7 +167,7 @@ export default function RegisterPage() {
               placeholder="Nhập lại mật khẩu"
               autoComplete="new-password"
               aria-invalid={Boolean(errors.confirmPassword)}
-              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
               {...register("confirmPassword")}
             />
             <button
@@ -180,7 +177,7 @@ export default function RegisterPage() {
                   ? "Ẩn xác nhận mật khẩu"
                   : "Hiện xác nhận mật khẩu"
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
               onClick={() => setShowConfirmPassword((value) => !value)}
             >
               {showConfirmPassword ? (
@@ -210,7 +207,7 @@ export default function RegisterPage() {
           type="submit"
           disabled={isSubmitting}
           className={cn(
-            "h-11 w-full bg-blue-600 text-base font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700",
+            "h-11 w-full bg-emerald-600 text-base font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-700",
             isSubmitting && "cursor-not-allowed opacity-80"
           )}
         >
@@ -225,7 +222,7 @@ export default function RegisterPage() {
         Đã có tài khoản?{" "}
         <Link
           href="/login"
-          className="font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+          className="font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline"
         >
           Đăng nhập
         </Link>

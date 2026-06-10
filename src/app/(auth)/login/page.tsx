@@ -16,26 +16,49 @@ import { cn } from "@/lib/utils";
 import { useAuthStore, type User } from "@/store/authStore";
 
 const loginSchema = z.object({
-  email: z.string().email("Email không hợp lệ"),
+  email: z.string().trim().email("Email không hợp lệ"),
   password: z.string().min(1, "Vui lòng nhập mật khẩu"),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
-type LoginResponse = {
-  user: User;
-  accessToken: string;
+type ApiResponse<T> = {
+  success?: boolean;
+  data?: T;
+  message?: string | string[];
+  user?: User;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
+};
+type AuthPayload = {
+  user?: User;
+  accessToken?: string;
+  refreshToken?: string;
+  token?: string;
 };
 type ApiErrorResponse = {
   message?: string | string[];
 };
 
+function normalizeMessage(message: string | string[] | undefined) {
+  return Array.isArray(message) ? message.join(", ") : message;
+}
+
+function getSafeReturnUrl(returnUrl: string | null) {
+  if (!returnUrl || !returnUrl.startsWith("/") || returnUrl.startsWith("//")) {
+    return "/dashboard";
+  }
+
+  return returnUrl;
+}
+
 function GoogleIcon() {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex size-5 items-center justify-center text-base font-bold"
+      className="inline-flex size-5 items-center justify-center text-base font-bold text-emerald-700"
     >
-      <span className="text-blue-600">G</span>
+      G
     </span>
   );
 }
@@ -44,6 +67,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered") === "true";
+  const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
   const setAuth = useAuthStore((state) => state.setAuth);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -62,19 +86,41 @@ function LoginForm() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const response = await api.post<LoginResponse>("/auth/login", {
-        email: data.email,
+      const response = await api.post<ApiResponse<AuthPayload>>("/auth/login", {
+        email: data.email.trim().toLowerCase(),
         password: data.password,
       });
 
-      setAuth(response.data.user, response.data.accessToken);
-      router.push("/dashboard");
+      const json = response.data;
+
+      if (json.success === false) {
+        throw new Error(normalizeMessage(json.message) || "Đăng nhập thất bại");
+      }
+
+      const accessToken =
+        json.data?.accessToken ||
+        json.accessToken ||
+        json.token ||
+        json.data?.token;
+      const refreshToken = json.data?.refreshToken || json.refreshToken;
+      const user = json.data?.user || json.user;
+
+      if (!accessToken) {
+        throw new Error("Backend không trả accessToken");
+      }
+
+      if (!user) {
+        throw new Error("Backend không trả thông tin user");
+      }
+
+      setAuth(user, accessToken, refreshToken);
+      router.replace(returnUrl);
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
-      const responseMessage = axiosError.response?.data?.message;
-      const message = Array.isArray(responseMessage)
-        ? responseMessage.join(", ")
-        : responseMessage || "Đăng nhập thất bại, vui lòng thử lại";
+      const message =
+        normalizeMessage(axiosError.response?.data?.message) ||
+        (error instanceof Error ? error.message : undefined) ||
+        "Đăng nhập thất bại, vui lòng thử lại";
 
       setError("root", { message });
     }
@@ -85,7 +131,9 @@ function LoginForm() {
       {registered ? (
         <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          <p className="font-medium">Đăng ký thành công! Vui lòng đăng nhập.</p>
+          <p className="font-medium">
+            Đăng ký thành công! Vui lòng đăng nhập.
+          </p>
         </div>
       ) : null}
 
@@ -94,7 +142,7 @@ function LoginForm() {
           Đăng nhập
         </h1>
         <p className="text-sm leading-6 text-slate-500">
-          Tiếp tục quản lý chi tiêu thông minh với FinTrack.
+          Tiếp tục quản lý chi tiêu thông minh với MoneyTrack.
         </p>
       </div>
 
@@ -109,7 +157,7 @@ function LoginForm() {
             placeholder="you@example.com"
             autoComplete="email"
             aria-invalid={Boolean(errors.email)}
-            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
             {...register("email")}
           />
           {errors.email ? (
@@ -118,10 +166,7 @@ function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium text-slate-700"
-          >
+          <label htmlFor="password" className="text-sm font-medium text-slate-700">
             Mật khẩu
           </label>
           <div className="relative">
@@ -131,13 +176,13 @@ function LoginForm() {
               placeholder="Nhập mật khẩu"
               autoComplete="current-password"
               aria-invalid={Boolean(errors.password)}
-              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
               {...register("password")}
             />
             <button
               type="button"
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30"
               onClick={() => setShowPassword((value) => !value)}
             >
               {showPassword ? (
@@ -165,7 +210,7 @@ function LoginForm() {
           type="submit"
           disabled={isSubmitting}
           className={cn(
-            "h-11 w-full bg-blue-600 text-base font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700",
+            "h-11 w-full bg-emerald-600 text-base font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-700",
             isSubmitting && "cursor-not-allowed opacity-80"
           )}
         >
@@ -198,7 +243,7 @@ function LoginForm() {
         Chưa có tài khoản?{" "}
         <Link
           href="/register"
-          className="font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+          className="font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline"
         >
           Đăng ký
         </Link>
