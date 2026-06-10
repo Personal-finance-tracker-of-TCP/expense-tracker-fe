@@ -35,7 +35,6 @@ export function getAccessToken(options?: { admin?: boolean }) {
       localStorage.getItem("accessToken")
     );
   }
-
   return localStorage.getItem("accessToken");
 }
 
@@ -44,7 +43,12 @@ function normalizeMessage(message: string | string[] | undefined) {
 }
 
 function getUrl(path: string) {
-  return path.startsWith("http") ? path : `${API_URL}${path}`;
+  if (path.startsWith("http")) return path;
+
+  const base = API_URL.replace(/\/+$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  return `${base}${normalizedPath}`;
 }
 
 function headersToRecord(headers: Headers) {
@@ -157,6 +161,14 @@ export async function authDownload(
       withCredentials: true,
     });
 
+    if (typeof window === "undefined") {
+        throw new ApiRequestError(
+          "Download is only supported in the browser",
+          0,
+          url,
+          null
+        );
+      }
     const objectUrl = URL.createObjectURL(response.data);
     const link = document.createElement("a");
     link.href = objectUrl;

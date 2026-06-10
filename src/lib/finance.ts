@@ -13,11 +13,17 @@ export function formatDate(date: string | Date | null | undefined) {
     return "-";
   }
 
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat("vi-VN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(date));
+  }).format(parsedDate);
 }
 
 export function getBudgetStatusStyle(status: string | undefined) {
