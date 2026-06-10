@@ -1,7 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { RefreshCcw, Plus, X, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { authFetch, getCurrentDemoPeriod, toNumber } from "@/lib/moneytrack-api";
 import { formatCurrency } from "@/components/dashboard/MoneyAmount";
 
@@ -51,13 +55,65 @@ const getTodayDate = () => {
   const today = new Date()
   const year = today.getFullYear()
   const month = String(today.getMonth() + 1).padStart(2, '0')
-  const day = String(today.getDate() - 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
 
+function isValidPastOrTodayDate(value: string) {
+  const transactionDate = new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(transactionDate.getTime())) {
+    return false
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  transactionDate.setHours(0, 0, 0, 0)
+
+  return transactionDate <= today
+}
+
+const transactionFormSchema = z.object({
+  amount: z
+    .union([z.string(), z.number()])
+    .refine((value) => String(value).trim() !== "", "Số tiền là bắt buộc")
+    .transform((value) => Number(value))
+    .refine((value) => Number.isFinite(value), "Số tiền phải là số hợp lệ")
+    .refine((value) => value > 0, "Số tiền phải lớn hơn 0"),
+  type: z.enum(["INCOME", "EXPENSE"], {
+    message: "Loại giao dịch chỉ nhận Thu nhập hoặc Chi tiêu",
+  }),
+  categoryId: z.string().optional(),
+  transactionDate: z
+    .string()
+    .min(1, "Ngày giao dịch là bắt buộc")
+    .refine(isValidPastOrTodayDate, "Ngày giao dịch không được ở tương lai"),
+  note: z.string().max(255, "Ghi chú tối đa 255 ký tự").optional(),
+})
+
+type TransactionFormInput = z.input<typeof transactionFormSchema>
+type TransactionFormData = z.output<typeof transactionFormSchema>
+
+function buildDefaultTransactionFormValues(
+  categories: Category[],
+  type: "INCOME" | "EXPENSE" = "EXPENSE"
+): TransactionFormInput {
+  const categoryId =
+    categories.find((c) => c.type === type || c.type === "BOTH")?.id || ""
+
+  return {
+    type,
+    amount: "",
+    note: "",
+    categoryId,
+    transactionDate: getTodayDate(),
+  }
+}
+
 
 export default function TransactionsPage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,16 +139,28 @@ export default function TransactionsPage() {
 
   // Dialog Modals State
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  // Create Form State
-  const [createType, setCreateType] = useState<"INCOME" | "EXPENSE">("EXPENSE");
-  const [createAmount, setCreateAmount] = useState("");
-  const [createNote, setCreateNote] = useState("");
-  const [createCategoryId, setCreateCategoryId] = useState("");
-  const [createDate, setCreateDate] = useState(getTodayDate());
   const [creating, setCreating] = useState(false);
+
+  const createForm = useForm<TransactionFormInput, unknown, TransactionFormData>({
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: buildDefaultTransactionFormValues([]),
+  });
+
+  const classifyForm = useForm<TransactionFormInput, unknown, TransactionFormData>({
+    resolver: zodResolver(transactionFormSchema),
+    defaultValues: buildDefaultTransactionFormValues([], "EXPENSE"),
+  });
+
+  const createType = useWatch({
+    control: createForm.control,
+    name: "type",
+  });
+  const classifyCategoryId = useWatch({
+    control: classifyForm.control,
+    name: "categoryId",
+  });
 
   // Available Periods Mapper
   const periodToMonthStr = {
@@ -202,15 +270,20 @@ export default function TransactionsPage() {
   function openClassifyModal(transaction: Transaction) {
     setSelectedTransaction(transaction);
     const expenseCats = categories.filter((c) => c.type === "EXPENSE" || c.type === "BOTH");
-    setSelectedCategoryId(expenseCats[0]?.id || "");
+    classifyForm.reset({
+      type: "EXPENSE",
+      amount: toNumber(transaction.amount),
+      categoryId: transaction.categoryId || expenseCats[0]?.id || "",
+      note: transaction.note || "",
+      transactionDate: transaction.transactionDate.split("T")[0] || getTodayDate(),
+    });
     setNotice(null);
     setError(null);
   }
 
   // Save SePay classification
-  async function handleClassify(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedTransaction || !selectedCategoryId) return;
+  async function handleClassify(values: TransactionFormData) {
+    if (!selectedTransaction || !values.categoryId) return;
 
     setSyncing(true);
     setError(null);
@@ -218,15 +291,16 @@ export default function TransactionsPage() {
       await authFetch<Transaction>(`/api/transactions/${selectedTransaction.id}`, {
         method: "PUT",
         body: JSON.stringify({
-          categoryId: selectedCategoryId,
-          type: "EXPENSE",
-          amount: toNumber(selectedTransaction.amount),
-          note: selectedTransaction.note || "",
-          transactionDate: selectedTransaction.transactionDate,
+          categoryId: values.categoryId,
+          type: values.type,
+          amount: values.amount,
+          note: values.note || "",
+          transactionDate: new Date(values.transactionDate).toISOString(),
         }),
       });
 
       await Promise.all([loadData(), loadBudgetsForSync()]);
+      router.refresh();
       setSelectedTransaction(null);
       setNotice("Phân loại giao dịch thành công. Kế hoạch ngân sách đã được cập nhật.");
     } catch (err) {
@@ -237,28 +311,24 @@ export default function TransactionsPage() {
   }
 
   // Submit manual transaction creation
-  async function handleCreateTransaction(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!createAmount) return;
-
+  async function handleCreateTransaction(values: TransactionFormData) {
     setCreating(true);
     setError(null);
     try {
       await authFetch<Transaction>("/api/transactions", {
         method: "POST",
         body: JSON.stringify({
-          type: createType,
-          amount: Number(createAmount),
-          categoryId: createCategoryId || null,
-          note: createNote || null,
-          transactionDate: createDate ? new Date(createDate).toISOString() : new Date().toISOString(),
+          type: values.type,
+          amount: values.amount,
+          categoryId: values.categoryId || null,
+          note: values.note || null,
+          transactionDate: new Date(values.transactionDate).toISOString(),
         }),
       });
 
       // Update user locally if balance changes
       if (user) {
-        const val = Number(createAmount);
-        const change = createType === "INCOME" ? val : -val;
+        const change = values.type === "INCOME" ? values.amount : -values.amount;
         const newBalance = (Number(user.balance) || 0) + change;
         const updatedUser = { ...user, balance: newBalance };
         setUser(updatedUser);
@@ -268,14 +338,12 @@ export default function TransactionsPage() {
       }
 
       await Promise.all([loadData(), loadBudgetsForSync()]);
+      router.refresh();
       setIsCreateOpen(false);
       setNotice("Tạo giao dịch mới thành công.");
 
       // Reset Form
-      setCreateAmount("");
-      setCreateNote("");
-      setCreateCategoryId("");
-      setCreateDate("");
+      createForm.reset(buildDefaultTransactionFormValues(categories));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tạo giao dịch");
     } finally {
@@ -404,8 +472,8 @@ export default function TransactionsPage() {
           {/* Add Transaction Button */}
           <button
             onClick={() => {
+              createForm.reset(buildDefaultTransactionFormValues(categories));
               setIsCreateOpen(true);
-              setCreateCategoryId(categories[0]?.id || "");
             }}
             type="button"
             className="inline-flex h-10 items-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 transition-all duration-150 active:scale-95"
@@ -506,7 +574,10 @@ export default function TransactionsPage() {
             icon={<AlertCircle className="h-6 w-6 text-slate-300" />}
           >
             <button
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                createForm.reset(buildDefaultTransactionFormValues(categories));
+                setIsCreateOpen(true);
+              }}
               className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-4 text-xs font-bold text-white transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -529,7 +600,7 @@ export default function TransactionsPage() {
       {selectedTransaction ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
           <form
-            onSubmit={handleClassify}
+            onSubmit={classifyForm.handleSubmit(handleClassify)}
             className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150"
           >
             <div className="flex items-start justify-between gap-4">
@@ -567,8 +638,7 @@ export default function TransactionsPage() {
               </label>
               <div className="relative">
                 <select
-                  value={selectedCategoryId}
-                  onChange={(event) => setSelectedCategoryId(event.target.value)}
+                  {...classifyForm.register("categoryId")}
                   className="h-10.5 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 text-xs font-semibold outline-none ring-slate-100/50 focus:bg-white focus:border-slate-300 focus:ring-4 cursor-pointer transition-all duration-200"
                   required
                 >
@@ -582,11 +652,21 @@ export default function TransactionsPage() {
                     ))}
                 </select>
               </div>
+              {classifyForm.formState.errors.categoryId ? (
+                <p className="mt-1.5 text-xs font-semibold text-red-600">
+                  {classifyForm.formState.errors.categoryId.message}
+                </p>
+              ) : null}
+              {classifyForm.formState.errors.transactionDate ? (
+                <p className="mt-1.5 text-xs font-semibold text-red-600">
+                  {classifyForm.formState.errors.transactionDate.message}
+                </p>
+              ) : null}
             </div>
 
             <button
               type="submit"
-              disabled={syncing || !selectedCategoryId}
+              disabled={syncing || !classifyCategoryId}
               className="mt-6 inline-flex h-10.5 w-full items-center justify-center rounded-2xl bg-slate-900 px-4 text-xs font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
               {syncing ? "Đang phân loại..." : "Lưu phân loại"}
@@ -599,7 +679,7 @@ export default function TransactionsPage() {
       {isCreateOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
           <form
-            onSubmit={handleCreateTransaction}
+            onSubmit={createForm.handleSubmit(handleCreateTransaction)}
             className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150 space-y-4"
           >
             <div className="flex items-start justify-between gap-4">
@@ -611,7 +691,10 @@ export default function TransactionsPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreateOpen(false)}
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  createForm.clearErrors();
+                }}
                 className="rounded-xl p-2 text-slate-400 hover:bg-slate-50 transition-colors"
                 aria-label="Close"
               >
@@ -624,8 +707,12 @@ export default function TransactionsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setCreateType("EXPENSE");
-                  setCreateCategoryId(categories.filter((c) => c.type === "EXPENSE" || c.type === "BOTH")[0]?.id || "");
+                  createForm.setValue("type", "EXPENSE", { shouldValidate: true });
+                  createForm.setValue(
+                    "categoryId",
+                    categories.filter((c) => c.type === "EXPENSE" || c.type === "BOTH")[0]?.id || "",
+                    { shouldValidate: true }
+                  );
                 }}
                 className={`flex-1 text-center py-1.5 rounded-xl text-xs font-bold transition-all duration-150 ${createType === "EXPENSE"
                   ? "bg-rose-500 text-white shadow-sm"
@@ -637,8 +724,12 @@ export default function TransactionsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setCreateType("INCOME");
-                  setCreateCategoryId(categories.filter((c) => c.type === "INCOME" || c.type === "BOTH")[0]?.id || "");
+                  createForm.setValue("type", "INCOME", { shouldValidate: true });
+                  createForm.setValue(
+                    "categoryId",
+                    categories.filter((c) => c.type === "INCOME" || c.type === "BOTH")[0]?.id || "",
+                    { shouldValidate: true }
+                  );
                 }}
                 className={`flex-1 text-center py-1.5 rounded-xl text-xs font-bold transition-all duration-150 ${createType === "INCOME"
                   ? "bg-blue-600 text-white shadow-sm"
@@ -656,13 +747,16 @@ export default function TransactionsPage() {
               </label>
               <input
                 type="number"
-                value={createAmount}
-                onChange={(e) => setCreateAmount(e.target.value)}
+                {...createForm.register("amount")}
                 placeholder="Ví dụ: 50000"
                 className="h-10.5 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 text-xs font-semibold outline-none ring-slate-100/50 focus:bg-white focus:border-slate-300 focus:ring-4 transition-all duration-200"
                 min="1"
-                required
               />
+              {createForm.formState.errors.amount ? (
+                <p className="text-xs font-semibold text-red-600">
+                  {createForm.formState.errors.amount.message}
+                </p>
+              ) : null}
             </div>
 
             {/* Note */}
@@ -672,11 +766,15 @@ export default function TransactionsPage() {
               </label>
               <input
                 type="text"
-                value={createNote}
-                onChange={(e) => setCreateNote(e.target.value)}
+                {...createForm.register("note")}
                 placeholder="Bữa trưa văn phòng, mua quần áo..."
                 className="h-10.5 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 text-xs font-semibold outline-none ring-slate-100/50 focus:bg-white focus:border-slate-300 focus:ring-4 transition-all duration-200"
               />
+              {createForm.formState.errors.note ? (
+                <p className="text-xs font-semibold text-red-600">
+                  {createForm.formState.errors.note.message}
+                </p>
+              ) : null}
             </div>
 
             {/* Category Dropdown */}
@@ -685,8 +783,7 @@ export default function TransactionsPage() {
                 Danh mục
               </label>
               <select
-                value={createCategoryId}
-                onChange={(e) => setCreateCategoryId(e.target.value)}
+                {...createForm.register("categoryId")}
                 className="h-10.5 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 text-xs font-semibold outline-none ring-slate-100/50 focus:bg-white focus:border-slate-300 focus:ring-4 cursor-pointer transition-all duration-200"
               >
                 <option value="">Chưa phân loại</option>
@@ -697,6 +794,11 @@ export default function TransactionsPage() {
                   </option>
                 ))}
               </select>
+              {createForm.formState.errors.categoryId ? (
+                <p className="text-xs font-semibold text-red-600">
+                  {createForm.formState.errors.categoryId.message}
+                </p>
+              ) : null}
             </div>
 
             {/* Date */}
@@ -706,10 +808,14 @@ export default function TransactionsPage() {
               </label>
               <input
                 type="date"
-                value={createDate}
-                onChange={(e) => setCreateDate(e.target.value)}
+                {...createForm.register("transactionDate")}
                 className="h-10.5 w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 text-xs font-semibold outline-none ring-slate-100/50 focus:bg-white focus:border-slate-300 focus:ring-4 transition-all duration-200"
               />
+              {createForm.formState.errors.transactionDate ? (
+                <p className="text-xs font-semibold text-red-600">
+                  {createForm.formState.errors.transactionDate.message}
+                </p>
+              ) : null}
             </div>
 
             <button

@@ -56,7 +56,7 @@ function GoogleIcon() {
   return (
     <span
       aria-hidden="true"
-      className="inline-flex size-5 items-center justify-center text-base font-bold text-slate-700"
+      className="inline-flex size-5 items-center justify-center text-base font-bold text-emerald-700"
     >
       G
     </span>

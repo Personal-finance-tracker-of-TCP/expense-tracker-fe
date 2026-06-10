@@ -1,0 +1,56 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e4]:
+      - heading "FinTrack" [level=1] [ref=e5]
+      - paragraph [ref=e6]: Quản lý chi tiêu thông minh — theo dõi thu chi, lập ngân sách, và nhận gợi ý từ AI
+      - generic [ref=e7]:
+        - link "Bắt đầu miễn phí" [ref=e8] [cursor=pointer]:
+          - /url: /register
+        - link "Đăng nhập" [ref=e9] [cursor=pointer]:
+          - /url: /login
+    - generic [ref=e11]:
+      - heading "Tính năng nổi bật" [level=2] [ref=e13]
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - img [ref=e18]
+            - generic [ref=e19]: Theo dõi giao dịch
+          - generic [ref=e21]: Ghi nhận thu chi hàng ngày, phân loại tự động theo danh mục
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - img [ref=e25]
+            - generic [ref=e28]: Quản lý ngân sách
+          - generic [ref=e30]: Đặt giới hạn chi tiêu và nhận cảnh báo khi vượt ngân sách
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - img [ref=e34]
+            - generic [ref=e37]: Báo cáo chi tiết
+          - generic [ref=e39]: Biểu đồ trực quan theo tuần, tháng, năm với xuất PDF/Excel
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - img [ref=e43]
+            - generic [ref=e46]: AI Advisor
+          - generic [ref=e48]: Nhận gợi ý tiết kiệm thông minh từ AI dựa trên thói quen chi tiêu
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - paragraph [ref=e52]: Thông tin hệ thống
+        - heading "Theo dõi dữ liệu public của MoneyTrack" [level=2] [ref=e53]
+      - generic [ref=e54]:
+        - link "ISR Thống kê nền tảng Xem tổng người dùng, giao dịch, SePay đã xử lý và dữ liệu danh mục/budget." [ref=e55] [cursor=pointer]:
+          - /url: /statistics
+          - generic [ref=e56]:
+            - img [ref=e58]
+            - generic [ref=e62]: ISR
+          - heading "Thống kê nền tảng" [level=3] [ref=e63]
+          - paragraph [ref=e64]: Xem tổng người dùng, giao dịch, SePay đã xử lý và dữ liệu danh mục/budget.
+        - link "SSR Trạng thái hệ thống Kiểm tra trạng thái backend, API, database và thời gian server theo từng request." [ref=e65] [cursor=pointer]:
+          - /url: /system-status
+          - generic [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e70]: SSR
+          - heading "Trạng thái hệ thống" [level=3] [ref=e71]
+          - paragraph [ref=e72]: Kiểm tra trạng thái backend, API, database và thời gian server theo từng request.
+    - generic [ref=e73]: © 2026 FinTrack. Được xây dựng với ❤️ bởi nhóm sinh viên PTIT.
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e79] [cursor=pointer]:
+    - img [ref=e80]

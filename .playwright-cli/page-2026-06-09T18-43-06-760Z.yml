@@ -1,0 +1,47 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e8]
+          - generic [ref=e10]:
+            - generic [ref=e11]:
+              - paragraph [ref=e12]: MoneyTrack Runtime
+              - generic [ref=e13]: SSR • render động mỗi request
+            - heading "Trạng thái hệ thống" [level=1] [ref=e14]
+            - paragraph [ref=e15]: Theo dõi trạng thái runtime tổng quát của backend và database, chỉ hiển thị dữ liệu public an toàn.
+        - link "Về trang chủ" [ref=e16] [cursor=pointer]:
+          - /url: /
+          - img [ref=e17]
+          - text: Về trang chủ
+      - generic [ref=e19]:
+        - article [ref=e20]:
+          - generic [ref=e21]:
+            - img [ref=e23]
+            - generic [ref=e26]: Đang cập nhật
+          - paragraph [ref=e28]: Backend
+          - paragraph [ref=e29]: Online
+        - article [ref=e30]:
+          - generic [ref=e31]:
+            - img [ref=e33]
+            - generic [ref=e37]: Đang cập nhật
+          - paragraph [ref=e39]: API
+          - paragraph [ref=e40]: MoneyTrack API is running
+        - article [ref=e41]:
+          - generic [ref=e42]:
+            - img [ref=e44]
+            - generic [ref=e48]: Đang cập nhật
+          - paragraph [ref=e50]: Database
+          - paragraph [ref=e51]: Online
+        - article [ref=e52]:
+          - generic [ref=e53]:
+            - img [ref=e55]
+            - generic [ref=e58]: Runtime
+          - paragraph [ref=e59]: Server time
+          - paragraph [ref=e60]: 01:43:06 10/06/2026
+      - generic [ref=e61]:
+        - paragraph [ref=e62]: Trang này dùng dynamic rendering để luôn lấy trạng thái runtime mới nhất từ backend.
+        - paragraph [ref=e63]: "Backend checked at: 01:43:06 10/06/2026"
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e69] [cursor=pointer]:
+    - img [ref=e70]

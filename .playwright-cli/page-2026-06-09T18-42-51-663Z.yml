@@ -1,0 +1,43 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e8]
+          - generic [ref=e10]:
+            - generic [ref=e11]:
+              - paragraph [ref=e12]: MoneyTrack Public
+              - generic [ref=e13]: ISR • cập nhật mỗi 60 giây
+            - heading "Thống kê nền tảng" [level=1] [ref=e14]
+            - paragraph [ref=e15]: Dữ liệu tổng hợp public của MoneyTrack, chỉ hiển thị số liệu an toàn và không chứa thông tin cá nhân.
+        - link "Về trang chủ" [ref=e16] [cursor=pointer]:
+          - /url: /
+          - img [ref=e17]
+          - text: Về trang chủ
+      - generic [ref=e19]:
+        - article [ref=e20]:
+          - img [ref=e22]
+          - paragraph [ref=e27]: Tổng người dùng
+          - paragraph [ref=e28]: "2"
+        - article [ref=e29]:
+          - img [ref=e31]
+          - paragraph [ref=e33]: Tổng giao dịch
+          - paragraph [ref=e34]: "2"
+        - article [ref=e35]:
+          - img [ref=e37]
+          - paragraph [ref=e41]: SePay đã xử lý
+          - paragraph [ref=e42]: "0"
+        - article [ref=e43]:
+          - img [ref=e45]
+          - paragraph [ref=e49]: Danh mục
+          - paragraph [ref=e50]: "11"
+        - article [ref=e51]:
+          - img [ref=e53]
+          - paragraph [ref=e55]: Budget
+          - paragraph [ref=e56]: "1"
+      - generic [ref=e57]:
+        - paragraph [ref=e58]: Trang này sử dụng Incremental Static Regeneration để cache thống kê public và tự làm mới sau 60 giây.
+        - paragraph [ref=e59]: "Cập nhật gần nhất: 01:42 10/06/2026"
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=e65] [cursor=pointer]:
+    - img [ref=e66]

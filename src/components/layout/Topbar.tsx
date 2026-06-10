@@ -15,6 +15,8 @@ const pageTitles: Record<string, string> = {
   "/budgets": "Budgets",
   "/reports": "Reports",
   "/ai-advisor": "AI Advisor",
+  "/feedback": "Feedback",
+  "/admin/bankhub-sandbox": "BankHub Sandbox",
   "/admin/sepay-simulator": "SePay VA Simulator",
   "/admin/sepay-logs": "SePay Logs",
   "/admin/linked-users": "Người dùng liên kết",

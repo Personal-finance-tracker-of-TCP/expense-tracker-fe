@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Landmark, ArrowLeftRight, HelpCircle, Car, RefreshCw, CheckCircle2, Tags } from "lucide-react";
 import { formatCurrency } from "@/components/dashboard/MoneyAmount";
 
@@ -29,6 +30,7 @@ type TransactionItemProps = {
 };
 
 export function TransactionItem({ transaction, onClassify }: TransactionItemProps) {
+  const router = useRouter();
   const isIncome = transaction.type === "INCOME";
   const noteText = transaction.note || "Không có ghi chú";
   const categoryName = transaction.category?.name || "Chưa phân loại";
@@ -69,11 +71,21 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
 
   return (
     <div
-      className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all duration-200 ${
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/transactions/${transaction.id}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          router.push(`/transactions/${transaction.id}`);
+        }
+      }}
+      className={`flex cursor-pointer flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all duration-200 outline-none focus:ring-4 focus:ring-emerald-500/15 ${
         isUnclassified
           ? "border-amber-200/80 bg-amber-50/20 hover:bg-amber-50/40"
           : "border-slate-100 bg-white hover:bg-slate-50/30"
       }`}
+      aria-label={`Xem chi tiết giao dịch ${noteText}`}
     >
       {/* Category Icon and Notes */}
       <div className="flex items-center gap-3.5 min-w-0 flex-1">
@@ -153,7 +165,10 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
         <div className="sm:min-w-[120px] text-right">
           {isUnclassified ? (
             <button
-              onClick={() => onClassify(transaction)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClassify(transaction);
+              }}
               type="button"
               className="inline-flex h-8.5 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors active:scale-95 duration-150"
             >

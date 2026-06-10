@@ -13,8 +13,8 @@ import {
   User,
   Settings,
   Shield,
-  Menu,
   Users,
+  MessageSquareText,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -31,6 +31,20 @@ type UserInfo = {
   avatarUrl?: string;
 };
 
+function getStoredSidebarUser() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawUser = localStorage.getItem("user");
+    return rawUser ? (JSON.parse(rawUser) as UserInfo) : null;
+  } catch (error) {
+    console.error("Error reading user storage", error);
+    return null;
+  }
+}
+
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const isOpen = useSidebarStore((state) => state.isOpen);
@@ -39,6 +53,10 @@ export function Sidebar({ className }: SidebarProps) {
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
 
   useEffect(() => {
+    const userLoadTimer = window.setTimeout(() => {
+      setCurrentUser(getStoredSidebarUser());
+    }, 0);
+
     const mediaQuery = window.matchMedia("(min-width: 768px)");
     const updateBreakpoint = () => {
       setIsDesktop(mediaQuery.matches);
@@ -47,19 +65,10 @@ export function Sidebar({ className }: SidebarProps) {
     updateBreakpoint();
     mediaQuery.addEventListener("change", updateBreakpoint);
 
-    // Read stored user from localStorage
-    if (typeof window !== "undefined") {
-      try {
-        const rawUser = localStorage.getItem("user");
-        if (rawUser) {
-          setCurrentUser(JSON.parse(rawUser));
-        }
-      } catch (e) {
-        console.error("Error reading user storage", e);
-      }
-    }
-
-    return () => mediaQuery.removeEventListener("change", updateBreakpoint);
+    return () => {
+      window.clearTimeout(userLoadTimer);
+      mediaQuery.removeEventListener("change", updateBreakpoint);
+    };
   }, []);
 
   const isAdmin = currentUser?.role === "ADMIN";
@@ -71,6 +80,7 @@ export function Sidebar({ className }: SidebarProps) {
     { href: "/budgets", label: "Ngân sách", icon: PiggyBank },
     { href: "/reports", label: "Báo cáo", icon: BarChart2 },
     { href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
+    { href: "/feedback", label: "Feedback", icon: MessageSquareText },
   ];
 
   const bottomItems = [
@@ -79,6 +89,8 @@ export function Sidebar({ className }: SidebarProps) {
   ];
 
   const adminItems = [
+    { href: "/admin/platform-statistics", label: "Thống kê nền tảng", icon: BarChart2 },
+    { href: "/admin/bankhub-sandbox", label: "BankHub Sandbox", icon: Shield },
     { href: "/admin/sepay-simulator", label: "SePay Simulator", icon: Shield },
     { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
     { href: "/admin/linked-users", label: "Người dùng liên kết", icon: Users },

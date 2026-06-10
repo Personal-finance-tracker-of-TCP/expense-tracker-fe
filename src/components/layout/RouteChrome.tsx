@@ -15,7 +15,13 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { FloatingChatbot } from "@/components/layout/FloatingChatbot";
 
-const plainRoutes = new Set(["/", "/login", "/register"]);
+const plainRoutes = new Set([
+  "/",
+  "/login",
+  "/register",
+  "/statistics",
+  "/system-status",
+]);
 
 export function RouteChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
