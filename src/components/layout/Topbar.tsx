@@ -19,13 +19,14 @@ const pageTitles: Record<string, string> = {
   "/admin/bankhub-sandbox": "BankHub Sandbox",
   "/admin/sepay-logs": "SePay Logs",
   "/admin/linked-users": "Người dùng liên kết",
+  "/admin/notifications": "Thông báo",
   "/profile": "Profile",
 };
 
 export function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const title = pageTitles[pathname] ?? "FinTrack";
+  const title = pageTitles[pathname] ?? "MoneyTrack";
   const toggle = useSidebarStore((state) => state.toggle);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
