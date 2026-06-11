@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AlertCircle,
   Banknote,
@@ -10,10 +11,17 @@ import {
   Loader2,
   RefreshCw,
   Unlink,
+  LockKeyhole,
   UserCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { toast } from "sonner";
 import { authFetch } from "@/lib/moneytrack-api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useAuthStore } from "@/store/authStore";
 
 type StoredUser = {
   id?: string;
@@ -39,6 +47,23 @@ type SyncResponse = StoredUser & {
   isLinked?: boolean;
   message?: string;
 };
+
+type PasswordChangeResponse = {
+  message?: string;
+};
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Vui lòng nhập mật khẩu hiện tại"),
+    newPassword: z.string().min(8, "Mật khẩu mới phải có ít nhất 8 ký tự"),
+    confirmNewPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu mới"),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    message: "Mật khẩu xác nhận không khớp",
+    path: ["confirmNewPassword"],
+  });
+
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 
 const SANDBOX_DESCRIPTION =
   "Tài khoản sandbox dùng để mô phỏng tài khoản ngân hàng trong môi trường BankHub Sandbox. Khi phát sinh giao dịch sandbox trên tài khoản này, hệ thống sẽ tự động đồng bộ giao dịch.";
@@ -76,6 +101,8 @@ function persistUser(user: StoredUser) {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const clearAuth = useAuthStore((state) => state.clearAuth);
   const [user, setUser] = useState<StoredUser | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
@@ -85,6 +112,21 @@ export default function ProfilePage() {
   const [unlinkLoading, setUnlinkLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
   const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
+
+  const {
+    register: registerPassword,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPasswordForm,
+    setError: setPasswordError,
+    formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
+  } = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmNewPassword: "",
+    },
+  });
 
   const loadProfile = useCallback(async () => {
     setLoadingProfile(true);
@@ -233,6 +275,24 @@ export default function ProfilePage() {
     }
   };
 
+  const handleChangePassword = async (data: ChangePasswordFormData) => {
+    try {
+      const response = await authFetch<PasswordChangeResponse>("/api/users/me/password", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      });
+
+      toast.success(response.message || "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+      clearAuth();
+      router.replace("/login?passwordChanged=true");
+      resetPasswordForm();
+    } catch (err) {
+      setPasswordError("root", {
+        message: err instanceof Error ? err.message : "Không thể đổi mật khẩu.",
+      });
+    }
+  };
+
   const isLinked = Boolean(user?.bankhubAccountXid);
   const detailRows = [
     ["Ngân hàng", user?.bankName || "-"],
@@ -286,6 +346,92 @@ export default function ProfilePage() {
               </div>
             ))}
           </dl>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <span className="rounded-2xl bg-slate-50 p-3 text-slate-600 ring-1 ring-slate-100">
+              <LockKeyhole className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold uppercase text-slate-500">
+                Security
+              </p>
+              <h2 className="mt-1 text-xl font-bold">Đổi mật khẩu</h2>
+              <p className="mt-2 max-w-xl text-sm text-slate-500">
+                Sau khi đổi mật khẩu thành công, phiên đăng nhập hiện tại sẽ bị đóng và bạn cần đăng nhập lại.
+              </p>
+            </div>
+          </div>
+
+          <form className="mt-6 grid gap-4" onSubmit={handlePasswordSubmit(handleChangePassword)}>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">
+                  Mật khẩu hiện tại
+                </label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
+                  {...registerPassword("currentPassword")}
+                />
+                {passwordErrors.currentPassword ? (
+                  <p className="text-sm text-red-500">{passwordErrors.currentPassword.message}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="newPassword" className="text-sm font-medium text-slate-700">
+                  Mật khẩu mới
+                </label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
+                  {...registerPassword("newPassword")}
+                />
+                {passwordErrors.newPassword ? (
+                  <p className="text-sm text-red-500">{passwordErrors.newPassword.message}</p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="confirmNewPassword" className="text-sm font-medium text-slate-700">
+                  Xác nhận mật khẩu mới
+                </label>
+                <Input
+                  id="confirmNewPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20"
+                  {...registerPassword("confirmNewPassword")}
+                />
+                {passwordErrors.confirmNewPassword ? (
+                  <p className="text-sm text-red-500">{passwordErrors.confirmNewPassword.message}</p>
+                ) : null}
+              </div>
+            </div>
+
+            {passwordErrors.root?.message ? (
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                {passwordErrors.root.message}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                disabled={isPasswordSubmitting}
+                className="h-11 bg-emerald-600 text-base font-semibold text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-700 disabled:opacity-80"
+              >
+                {isPasswordSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Cập nhật mật khẩu
+              </Button>
+            </div>
+          </form>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
