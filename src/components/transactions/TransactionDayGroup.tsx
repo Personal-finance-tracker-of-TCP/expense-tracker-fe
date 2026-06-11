@@ -17,6 +17,7 @@ type Transaction = {
   amount: number | string;
   note?: string | null;
   source: "MANUAL" | "SEPAY";
+  classificationStatus?: "UNCLASSIFIED" | "CLASSIFIED" | "EXCLUDED";
   categoryId?: string | null;
   category?: Category | null;
   sepayId?: string | null;
@@ -27,16 +28,20 @@ type TransactionDayGroupProps = {
   dateStr: string;
   transactions: Transaction[];
   onClassify: (tx: Transaction) => void;
+  onExclude: (tx: Transaction) => void;
 };
 
 export function TransactionDayGroup({
   dateStr,
   transactions,
   onClassify,
+  onExclude,
 }: TransactionDayGroupProps) {
   // Calculate daily net sum (INCOME - EXPENSE)
   const dailyNetSum = useMemo(() => {
-    return transactions.reduce((acc, tx) => {
+    return transactions
+      .filter((tx) => tx.classificationStatus === "CLASSIFIED")
+      .reduce((acc, tx) => {
       const amount = Number(tx.amount) || 0;
       if (tx.type === "INCOME") {
         return acc + amount;
@@ -120,6 +125,7 @@ export function TransactionDayGroup({
             key={tx.id}
             transaction={tx}
             onClassify={onClassify}
+            onExclude={onExclude}
           />
         ))}
       </div>

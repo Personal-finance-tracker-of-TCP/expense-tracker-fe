@@ -2,7 +2,16 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Landmark, ArrowLeftRight, HelpCircle, Car, RefreshCw, CheckCircle2, Tags } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Ban,
+  Car,
+  CheckCircle2,
+  HelpCircle,
+  Landmark,
+  RefreshCw,
+  Tags,
+} from "lucide-react";
 import { formatCurrency } from "@/components/dashboard/MoneyAmount";
 
 type Category = {
@@ -12,12 +21,15 @@ type Category = {
   color?: string | null;
 };
 
+type ClassificationStatus = "UNCLASSIFIED" | "CLASSIFIED" | "EXCLUDED";
+
 type Transaction = {
   id: string;
   type: "INCOME" | "EXPENSE";
   amount: number | string;
   note?: string | null;
   source: "MANUAL" | "SEPAY";
+  classificationStatus?: ClassificationStatus;
   categoryId?: string | null;
   category?: Category | null;
   sepayId?: string | null;
@@ -27,18 +39,36 @@ type Transaction = {
 type TransactionItemProps = {
   transaction: Transaction;
   onClassify: (tx: Transaction) => void;
+  onExclude: (tx: Transaction) => void;
 };
 
-export function TransactionItem({ transaction, onClassify }: TransactionItemProps) {
+function getStatus(transaction: Transaction): ClassificationStatus {
+  if (transaction.classificationStatus) return transaction.classificationStatus;
+  return transaction.categoryId ? "CLASSIFIED" : "UNCLASSIFIED";
+}
+
+export function TransactionItem({
+  transaction,
+  onClassify,
+  onExclude,
+}: TransactionItemProps) {
   const router = useRouter();
   const isIncome = transaction.type === "INCOME";
+  const status = getStatus(transaction);
+  const isUnclassified = status === "UNCLASSIFIED";
+  const isExcluded = status === "EXCLUDED";
   const noteText = transaction.note || "Không có ghi chú";
-  const categoryName = transaction.category?.name || "Chưa phân loại";
+  const categoryName = isExcluded
+    ? "Đã bỏ qua"
+    : transaction.category?.name || "Chưa phân loại";
   const categoryIcon = transaction.category?.icon || "?";
-  
-  const isUnclassified = !transaction.categoryId;
+  const isSePay = transaction.source === "SEPAY";
 
   const renderIcon = () => {
+    if (isExcluded) {
+      return <Ban className="h-4.5 w-4.5 text-slate-500" />;
+    }
+
     if (categoryIcon && categoryIcon !== "?") {
       const isEmoji = /\p{Emoji}/u.test(categoryIcon);
       if (isEmoji || categoryIcon.length <= 2) {
@@ -59,7 +89,6 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
     if (name.includes("hoàn tiền") || name.includes("refund")) {
       return <RefreshCw className="h-4.5 w-4.5 text-emerald-500" />;
     }
-
     if (isUnclassified) {
       return <HelpCircle className="h-4.5 w-4.5 text-amber-500" />;
     }
@@ -67,7 +96,18 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
     return <ArrowLeftRight className="h-4.5 w-4.5 text-slate-400" />;
   };
 
-  const isSePay = transaction.source === "SEPAY";
+  const statusBadge =
+    status === "UNCLASSIFIED"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
+      : status === "EXCLUDED"
+        ? "border-slate-200 bg-slate-100 text-slate-500"
+        : "border-emerald-100 bg-emerald-50 text-emerald-600";
+  const statusLabel =
+    status === "UNCLASSIFIED"
+      ? "Cần phân loại"
+      : status === "EXCLUDED"
+        ? "Đã bỏ qua"
+        : "Đã phân loại";
 
   return (
     <div
@@ -80,76 +120,73 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
           router.push(`/transactions/${transaction.id}`);
         }
       }}
-      className={`flex cursor-pointer flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border transition-all duration-200 outline-none focus:ring-4 focus:ring-emerald-500/15 ${
+      className={`flex cursor-pointer flex-col items-start justify-between gap-4 rounded-2xl border p-4 outline-none transition-all duration-200 focus:ring-4 focus:ring-emerald-500/15 sm:flex-row sm:items-center ${
         isUnclassified
           ? "border-amber-200/80 bg-amber-50/20 hover:bg-amber-50/40"
-          : "border-slate-100 bg-white hover:bg-slate-50/30"
+          : isExcluded
+            ? "border-slate-200 bg-slate-50/80 hover:bg-slate-100/70"
+            : "border-slate-100 bg-white hover:bg-slate-50/30"
       }`}
       aria-label={`Xem chi tiết giao dịch ${noteText}`}
     >
-      {/* Category Icon and Notes */}
-      <div className="flex items-center gap-3.5 min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-sm ${
             isUnclassified
-              ? "bg-amber-50 border-amber-200"
-              : "bg-slate-50 border-slate-200/60"
+              ? "border-amber-200 bg-amber-50"
+              : isExcluded
+                ? "border-slate-200 bg-white"
+                : "border-slate-200/60 bg-slate-50"
           }`}
         >
           {renderIcon()}
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-bold text-slate-800 truncate leading-snug">
+            <p className="truncate text-sm font-bold leading-snug text-slate-800">
               {noteText}
             </p>
-            {isUnclassified && (
-              <span className="rounded-lg bg-amber-50 border border-amber-200/80 px-2 py-0.5 text-[9px] font-bold text-amber-700 uppercase tracking-wide">
-                Cần phân loại
+            {isSePay ? (
+              <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${statusBadge}`}>
+                {statusLabel}
               </span>
-            )}
+            ) : null}
           </div>
-          <p className="text-xs text-slate-400 truncate mt-0.5 font-semibold flex items-center gap-1.5">
-            <span className={isUnclassified ? "text-amber-600/80 font-bold" : ""}>
+          <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs font-semibold text-slate-400">
+            <span className={isUnclassified ? "font-bold text-amber-600/80" : ""}>
               {categoryName}
             </span>
-            {transaction.sepayId && (
-              <span className="text-[10px] text-slate-300 font-medium font-mono">
-                · {transaction.sepayId}
+            {transaction.sepayId ? (
+              <span className="font-mono text-[10px] font-medium text-slate-300">
+                - {transaction.sepayId}
               </span>
-            )}
+            ) : null}
           </p>
         </div>
       </div>
 
-      {/* Badges and Actions */}
-      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t border-slate-100/60 pt-3 sm:border-0 sm:pt-0 shrink-0">
-        {/* Type and Source badges */}
+      <div className="flex w-full shrink-0 flex-wrap items-center justify-between gap-4 border-t border-slate-100/60 pt-3 sm:w-auto sm:justify-end sm:border-0 sm:pt-0">
         <div className="flex items-center gap-2">
-          {/* Type Badge: Thu / Chi */}
           <span
-            className={`rounded-lg px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider border ${
+            className={`rounded-lg border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
               isIncome
-                ? "bg-blue-50 text-blue-600 border-blue-100"
-                : "bg-rose-50/50 text-rose-500 border-rose-100/70"
+                ? "border-blue-100 bg-blue-50 text-blue-600"
+                : "border-rose-100/70 bg-rose-50/50 text-rose-500"
             }`}
           >
             {isIncome ? "Thu" : "Chi"}
           </span>
-
-          {/* Source Badge: Manual / SePay */}
           <span
-            className={`rounded-lg px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider border ${
+            className={`rounded-lg border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
               isSePay
-                ? "bg-indigo-50 text-indigo-600 border-indigo-100"
-                : "bg-slate-50 text-slate-500 border-slate-200/80"
+                ? "border-indigo-100 bg-indigo-50 text-indigo-600"
+                : "border-slate-200/80 bg-slate-50 text-slate-500"
             }`}
           >
             {transaction.source}
           </span>
         </div>
 
-        {/* Amount Display */}
         <div className="text-right sm:min-w-[110px]">
           <p
             className={`text-sm font-extrabold tabular-nums ${
@@ -161,24 +198,36 @@ export function TransactionItem({ transaction, onClassify }: TransactionItemProp
           </p>
         </div>
 
-        {/* Action Button: Phân loại / ✓ Đã phân loại */}
-        <div className="sm:min-w-[120px] text-right">
+        <div className="flex items-center justify-end gap-2 sm:min-w-[176px]">
           {isUnclassified ? (
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                onClassify(transaction);
-              }}
-              type="button"
-              className="inline-flex h-8.5 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors active:scale-95 duration-150"
-            >
-              <Tags className="h-3.5 w-3.5" />
-              Phân loại
-            </button>
+            <>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClassify(transaction);
+                }}
+                type="button"
+                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-slate-800 active:scale-95"
+              >
+                <Tags className="h-3.5 w-3.5" />
+                Phân loại
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onExclude(transaction);
+                }}
+                type="button"
+                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors duration-150 hover:bg-slate-50 active:scale-95"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                Bỏ qua
+              </button>
+            </>
           ) : (
-            <span className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50/40 px-3 py-1 text-xs font-bold text-emerald-600">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Đã phân loại
+            <span className={`inline-flex h-8.5 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-bold ${statusBadge}`}>
+              {isExcluded ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              {statusLabel}
             </span>
           )}
         </div>

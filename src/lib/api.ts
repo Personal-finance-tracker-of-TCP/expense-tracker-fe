@@ -6,7 +6,11 @@ import type {
 } from "axios";
 import { toast } from "sonner";
 
-import { useAuthStore } from "@/store/authStore";
+import {
+  setAccessTokenCookie,
+  setUserRoleCookie,
+  useAuthStore,
+} from "@/store/authStore";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -221,9 +225,12 @@ async function refreshAccessToken() {
 }
 
 function persistRefreshedTokens(accessToken: string, refreshToken?: string) {
+  setAccessTokenCookie(accessToken);
+
   const { user, setAuth } = useAuthStore.getState();
 
   if (user) {
+    setUserRoleCookie(user.role);
     setAuth(user, accessToken, refreshToken);
     return;
   }

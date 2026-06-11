@@ -46,10 +46,18 @@ function normalizeMessage(message: string | string[] | undefined) {
 
 function getSafeReturnUrl(returnUrl: string | null) {
   if (!returnUrl || !returnUrl.startsWith("/") || returnUrl.startsWith("//")) {
-    return "/dashboard";
+    return null;
   }
 
   return returnUrl;
+}
+
+function getPostLoginPath(user: User, returnUrl: string | null) {
+  if (user.role === "ADMIN") {
+    return returnUrl && !returnUrl.startsWith("/dashboard") ? returnUrl : "/admin";
+  }
+
+  return returnUrl && !returnUrl.startsWith("/admin") ? returnUrl : "/dashboard";
 }
 
 function GoogleIcon() {
@@ -67,7 +75,9 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered") === "true";
-  const returnUrl = getSafeReturnUrl(searchParams.get("returnUrl"));
+  const returnUrl = getSafeReturnUrl(
+    searchParams.get("returnUrl") || searchParams.get("from")
+  );
   const setAuth = useAuthStore((state) => state.setAuth);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -114,7 +124,7 @@ function LoginForm() {
       }
 
       setAuth(user, accessToken, refreshToken);
-      router.replace(returnUrl);
+      router.replace(getPostLoginPath(user, returnUrl));
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
       const message =

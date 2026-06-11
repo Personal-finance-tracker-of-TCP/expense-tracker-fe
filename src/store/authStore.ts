@@ -7,7 +7,10 @@ export interface User {
   avatarUrl?: string | null;
   role: "USER" | "ADMIN";
   sepayCode?: string | null;
+  bankhubAccountXid?: string | null;
   bankAccountNumber?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
   sepayLinkedAt?: string | null;
 }
 
@@ -21,7 +24,8 @@ interface AuthState {
 }
 
 const ACCESS_TOKEN_COOKIE = "access_token";
-const ACCESS_TOKEN_MAX_AGE = 60 * 15;
+const USER_ROLE_COOKIE = "user_role";
+const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
 const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
 const REFRESH_TOKEN_STORAGE_KEY = "refreshToken";
 const USER_STORAGE_KEY = "user";
@@ -60,7 +64,7 @@ function getStoredAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
-function setAccessTokenCookie(accessToken: string) {
+export function setAccessTokenCookie(accessToken: string) {
   if (typeof document === "undefined") {
     return;
   }
@@ -70,12 +74,23 @@ function setAccessTokenCookie(accessToken: string) {
   )}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; SameSite=Lax`;
 }
 
+export function setUserRoleCookie(role: User["role"]) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${USER_ROLE_COOKIE}=${encodeURIComponent(
+    role
+  )}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; SameSite=Lax`;
+}
+
 function removeAccessTokenCookie() {
   if (typeof document === "undefined") {
     return;
   }
 
   document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${USER_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
 }
 
 function setStoredAuth(user: User, accessToken: string, refreshToken?: string) {
@@ -111,6 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: Boolean(storedAccessToken),
   setAuth: (user, accessToken, refreshToken) => {
     setAccessTokenCookie(accessToken);
+    setUserRoleCookie(user.role);
     setStoredAuth(user, accessToken, refreshToken);
     set({
       user,

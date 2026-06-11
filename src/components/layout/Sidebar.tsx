@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -11,36 +11,52 @@ import {
   BarChart2,
   Sparkles,
   User,
-  Settings,
   Shield,
   Users,
   MessageSquareText,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 
 type SidebarProps = {
   className?: string;
 };
 
-type UserInfo = {
-  name?: string;
-  email?: string;
-  role?: "ADMIN" | "USER";
-  avatarUrl?: string;
+type SidebarRole = "ADMIN" | "USER";
+type SidebarItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  activePaths?: string[];
 };
 
-function getStoredSidebarUser() {
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const match = document.cookie
+    .split("; ")
+    .find((cookie) => cookie.startsWith(`${name}=`));
+
+  return match ? decodeURIComponent(match.split("=")[1] ?? "") : null;
+}
+
+function getStoredRole(): SidebarRole | null {
   if (typeof window === "undefined") {
     return null;
   }
 
   try {
     const rawUser = localStorage.getItem("user");
-    return rawUser ? (JSON.parse(rawUser) as UserInfo) : null;
-  } catch (error) {
-    console.error("Error reading user storage", error);
+    const user = rawUser ? (JSON.parse(rawUser) as { role?: SidebarRole }) : null;
+    const cookieRole = getCookieValue("user_role");
+    const role = user?.role || cookieRole;
+
+    return role === "ADMIN" || role === "USER" ? role : null;
+  } catch {
     return null;
   }
 }
@@ -49,31 +65,35 @@ export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const isOpen = useSidebarStore((state) => state.isOpen);
   const close = useSidebarStore((state) => state.close);
+  const authUser = useAuthStore((state) => state.user);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+  const [clientRole, setClientRole] = useState<SidebarRole | null>(null);
 
   useEffect(() => {
-    const userLoadTimer = window.setTimeout(() => {
-      setCurrentUser(getStoredSidebarUser());
-    }, 0);
-
     const mediaQuery = window.matchMedia("(min-width: 768px)");
     const updateBreakpoint = () => {
       setIsDesktop(mediaQuery.matches);
     };
 
-    updateBreakpoint();
+    const mountTimer = window.setTimeout(() => {
+      setHasMounted(true);
+      setClientRole(authUser?.role || getStoredRole());
+      updateBreakpoint();
+    }, 0);
+
     mediaQuery.addEventListener("change", updateBreakpoint);
 
     return () => {
-      window.clearTimeout(userLoadTimer);
+      window.clearTimeout(mountTimer);
       mediaQuery.removeEventListener("change", updateBreakpoint);
     };
-  }, []);
+  }, [authUser?.role]);
 
-  const isAdmin = currentUser?.role === "ADMIN";
+  const role = hasMounted ? clientRole : null;
+  const isAdmin = role === "ADMIN";
 
-  const navigationItems = [
+  const userNavigationItems: SidebarItem[] = [
     { href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard },
     { href: "/transactions", label: "Giao dịch", icon: ArrowLeftRight },
     { href: "/categories", label: "Danh mục", icon: Tag },
@@ -81,15 +101,17 @@ export function Sidebar({ className }: SidebarProps) {
     { href: "/reports", label: "Báo cáo", icon: BarChart2 },
     { href: "/ai-advisor", label: "AI Advisor", icon: Sparkles },
     { href: "/feedback", label: "Feedback", icon: MessageSquareText },
+    { href: "/profile", label: "Profile", icon: User },
   ];
 
-  const bottomItems = [
-    { href: "/profile", label: "Tài khoản", icon: User },
-    { href: "/profile#settings", label: "Cài đặt", icon: Settings },
-  ];
-
-  const adminItems = [
-    { href: "/admin/platform-statistics", label: "Thống kê nền tảng", icon: BarChart2 },
+  const adminItems: SidebarItem[] = [
+    { href: "/admin", label: "Tổng quan quản trị", icon: LayoutDashboard },
+    {
+      href: "/admin/statistics",
+      label: "Thống kê nền tảng",
+      icon: BarChart2,
+      activePaths: ["/admin/platform-statistics"],
+    },
     { href: "/admin/bankhub-sandbox", label: "BankHub Sandbox", icon: Shield },
     { href: "/admin/sepay-simulator", label: "SePay Simulator", icon: Shield },
     { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
@@ -97,6 +119,29 @@ export function Sidebar({ className }: SidebarProps) {
   ];
 
   const shouldShowBackdrop = !isDesktop && isOpen;
+  const visibleItems = role === null ? [] : isAdmin ? adminItems : userNavigationItems;
+  const sectionLabel =
+    role === null ? "Đang tải" : isAdmin ? "Quản trị viên" : "Menu chính";
+  const activeClassName =
+    "bg-emerald-500 text-white shadow-md shadow-emerald-500/20";
+
+  function isItemActive(item: SidebarItem) {
+    if (!pathname) return false;
+
+    const paths = [item.href, ...(item.activePaths ?? [])];
+
+    return paths.some((href) => {
+      if (href === "/admin") {
+        return pathname === "/admin";
+      }
+
+      if (href === "/dashboard") {
+        return pathname === "/dashboard";
+      }
+
+      return pathname === href || pathname.startsWith(`${href}/`);
+    });
+  }
 
   return (
     <>
@@ -116,7 +161,6 @@ export function Sidebar({ className }: SidebarProps) {
           className
         )}
       >
-        {/* Logo MoneyTrack */}
         <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-800/40">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/20 text-white">
             <svg
@@ -138,21 +182,18 @@ export function Sidebar({ className }: SidebarProps) {
           </span>
         </div>
 
-        {/* Menu Navigation */}
         <nav className="flex-1 px-4 py-6 overflow-y-auto space-y-7">
           <div>
             <span className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-3">
-              Menu chính
+              {sectionLabel}
             </span>
             <ul className="space-y-1.5">
-              {navigationItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              {visibleItems.map((item, index) => {
+                const isActive = isItemActive(item);
                 const Icon = item.icon;
 
                 return (
-                  <li key={item.href}>
+                  <li key={`${item.href}-${index}`}>
                     <Link
                       href={item.href}
                       onClick={() => {
@@ -161,8 +202,8 @@ export function Sidebar({ className }: SidebarProps) {
                       className={cn(
                         "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
                         isActive
-                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/15"
-                          : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
+                          ? activeClassName
+                          : "text-slate-400 hover:bg-emerald-500 hover:text-white"
                       )}
                     >
                       <Icon className="h-4.5 w-4.5 shrink-0" />
@@ -173,71 +214,10 @@ export function Sidebar({ className }: SidebarProps) {
               })}
             </ul>
           </div>
-
-          {/* Admin panel in sidebar for ease of testing */}
-          {isAdmin && (
-            <div>
-              <span className="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-3">
-                Quản trị viên
-              </span>
-              <ul className="space-y-1.5">
-                {adminItems.map((item) => {
-                  const isActive = pathname.startsWith(item.href);
-                  const Icon = item.icon;
-
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={() => {
-                          if (!isDesktop) close();
-                        }}
-                        className={cn(
-                          "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
-                          isActive
-                            ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/15"
-                            : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
-                        )}
-                      >
-                        <Icon className="h-4.5 w-4.5 shrink-0" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
         </nav>
-
-        {/* Bottom Menu items */}
-        <div className="p-4 border-t border-slate-800/40 space-y-1.5">
-          {bottomItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "#");
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => {
-                  if (!isDesktop) close();
-                }}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-semibold transition-all duration-200",
-                  isActive
-                    ? "bg-slate-800 text-white"
-                    : "text-slate-400 hover:bg-slate-800/50 hover:text-white"
-                )}
-              >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
       </aside>
     </>
   );
 }
+
 export const AppSidebar = Sidebar;
