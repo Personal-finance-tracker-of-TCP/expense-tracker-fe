@@ -113,7 +113,6 @@ export function Sidebar({ className }: SidebarProps) {
       activePaths: ["/admin/platform-statistics"],
     },
     { href: "/admin/bankhub-sandbox", label: "BankHub Sandbox", icon: Shield },
-    { href: "/admin/sepay-simulator", label: "SePay Simulator", icon: Shield },
     { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
     { href: "/admin/linked-users", label: "Người dùng liên kết", icon: Users },
   ];

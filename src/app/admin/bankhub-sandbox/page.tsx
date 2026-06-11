@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  DownloadCloud,
-  LinkIcon,
   Loader2,
   RefreshCw,
   Send,
@@ -27,20 +25,6 @@ type LinkedUser = {
   bankAccountName: string | null;
   sepayLinkedAt: string | null;
   role: string;
-};
-
-type BankhubAccount = {
-  bankhubAccountXid: string | null;
-  bankAccountNumber: string | null;
-  bankName: string | null;
-  bankAccountName: string | null;
-  status?: unknown;
-  raw?: unknown;
-};
-
-type LinkedAccountsResponse = {
-  accounts: BankhubAccount[];
-  raw: unknown;
 };
 
 type TransferType = "credit" | "debit";
@@ -80,15 +64,11 @@ function formatLinkedAt(value?: string | null) {
 
 export default function BankHubSandboxPage() {
   const [users, setUsers] = useState<LinkedUser[]>([]);
-  const [bankhubAccounts, setBankhubAccounts] = useState<BankhubAccount[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [selectedAccountXid, setSelectedAccountXid] = useState("");
   const [transferType, setTransferType] = useState<TransferType>("credit");
   const [amount, setAmount] = useState("200000");
   const [content, setContent] = useState("Sandbox income demo");
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [assigningAccount, setAssigningAccount] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BankHubMockResponse | null>(null);
@@ -101,14 +81,6 @@ export default function BankHubSandboxPage() {
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
     [selectedUserId, users]
-  );
-
-  const selectedAccount = useMemo(
-    () =>
-      bankhubAccounts.find(
-        (account) => account.bankhubAccountXid === selectedAccountXid
-      ) || null,
-    [selectedAccountXid, bankhubAccounts]
   );
 
   const reloadUsers = async () => {
@@ -192,64 +164,6 @@ export default function BankHubSandboxPage() {
     };
   }, [webhookWaitStartedAt, webhookWaitState]);
 
-  const fetchBankhubAccounts = async () => {
-    setLoadingAccounts(true);
-    setError(null);
-
-    try {
-      const data = await authFetch<LinkedAccountsResponse>(
-        "/api/bankhub/linked-accounts",
-        { admin: true }
-      );
-      const accounts = data.accounts || [];
-
-      setBankhubAccounts(accounts);
-      setSelectedAccountXid((current) =>
-        accounts.some((account) => account.bankhubAccountXid === current)
-          ? current
-          : accounts[0]?.bankhubAccountXid || ""
-      );
-      toast.success("Đã lấy tài khoản BankHub từ SePay.");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không thể lấy account từ SePay"
-      );
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
-
-  const assignSelectedAccount = async () => {
-    if (!selectedUser || !selectedAccount?.bankhubAccountXid) {
-      setError("Vui lòng chọn user và tài khoản BankHub");
-      return;
-    }
-
-    setAssigningAccount(true);
-    setError(null);
-
-    try {
-      await authFetch(`/api/admin/users/${selectedUser.id}/bankhub-account`, {
-        method: "PATCH",
-        admin: true,
-        body: JSON.stringify({
-          bankhubAccountXid: selectedAccount.bankhubAccountXid,
-          bankAccountNumber: selectedAccount.bankAccountNumber,
-          bankName: selectedAccount.bankName,
-          bankAccountName: selectedAccount.bankAccountName,
-        }),
-      });
-      toast.success("Đã gán tài khoản BankHub cho user.");
-      await reloadUsers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Không thể gán account cho user"
-      );
-    } finally {
-      setAssigningAccount(false);
-    }
-  };
-
   const validateForm = () => {
     if (!selectedUser) {
       setError("Vui lòng chọn user đã liên kết BankHub Sandbox");
@@ -257,7 +171,7 @@ export default function BankHubSandboxPage() {
     }
 
     if (!selectedUser.bankhubAccountXid) {
-      setError("User chưa có BankHub XID, hãy gán tài khoản BankHub trước.");
+      setError("User chưa tự liên kết BankHub Sandbox. Hãy yêu cầu user liên kết bằng Hosted Link ở trang Profile.");
       return null;
     }
 
@@ -345,17 +259,6 @@ export default function BankHubSandboxPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={fetchBankhubAccounts}
-                disabled={loadingAccounts}
-                className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
-              >
-                <DownloadCloud
-                  className={`h-4 w-4 ${loadingAccounts ? "animate-spin" : ""}`}
-                />
-                Lấy tài khoản từ SePay
-              </button>
-              <button
-                type="button"
                 onClick={reloadUsers}
                 disabled={loadingUsers}
                 className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
@@ -419,47 +322,6 @@ export default function BankHubSandboxPage() {
                 )}
               </div>
             </div>
-
-            {bankhubAccounts.length > 0 ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-                <p className="text-sm font-bold text-emerald-900">
-                  Gán tài khoản SePay cho user
-                </p>
-                <select
-                  value={selectedAccountXid}
-                  onChange={(event) => setSelectedAccountXid(event.target.value)}
-                  className="mt-3 h-11 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm font-semibold outline-none"
-                >
-                  {bankhubAccounts.map((account) => (
-                    <option
-                      key={
-                        account.bankhubAccountXid ||
-                        account.bankAccountNumber ||
-                        ""
-                      }
-                      value={account.bankhubAccountXid || ""}
-                    >
-                      {account.bankName || "BankHub"} -{" "}
-                      {account.bankAccountNumber || "-"} -{" "}
-                      {account.bankhubAccountXid}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={assignSelectedAccount}
-                  disabled={assigningAccount || !selectedAccountXid || !selectedUser}
-                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                >
-                  {assigningAccount ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <LinkIcon className="h-4 w-4" />
-                  )}
-                  Gán account cho user đang chọn
-                </button>
-              </div>
-            ) : null}
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-slate-400">
