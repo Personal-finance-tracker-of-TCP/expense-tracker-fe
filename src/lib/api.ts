@@ -98,10 +98,14 @@ function isAuthEndpoint(config: Pick<AxiosRequestConfig, "baseURL" | "url">) {
     "/auth/register",
     "/auth/refresh",
     "/auth/logout",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/api/auth/login",
     "/api/auth/register",
     "/api/auth/refresh",
     "/api/auth/logout",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
   ].includes(path);
 }
 
@@ -112,9 +116,13 @@ function shouldSkipAuthHeader(config: Pick<AxiosRequestConfig, "baseURL" | "url"
     "/auth/login",
     "/auth/register",
     "/auth/refresh",
+    "/auth/forgot-password",
+    "/auth/reset-password",
     "/api/auth/login",
     "/api/auth/register",
     "/api/auth/refresh",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
   ].includes(path);
 }
 
