@@ -23,6 +23,8 @@ const plainRoutes = new Set([
   "/",
   "/login",
   "/register",
+  "/forgot-password",
+  "/reset-password",
   "/statistics",
   "/system-status",
 ]);
