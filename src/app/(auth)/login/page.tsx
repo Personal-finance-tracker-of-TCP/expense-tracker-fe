@@ -75,6 +75,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const registered = searchParams.get("registered") === "true";
+  const passwordChanged = searchParams.get("passwordChanged") === "true";
+  const passwordReset = searchParams.get("passwordReset") === "true";
   const returnUrl = getSafeReturnUrl(
     searchParams.get("returnUrl") || searchParams.get("from")
   );
@@ -138,6 +140,24 @@ function LoginForm() {
 
   return (
     <div className="space-y-7">
+      {passwordChanged ? (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="font-medium">
+            Đổi mật khẩu thành công. Vui lòng đăng nhập lại.
+          </p>
+        </div>
+      ) : null}
+
+      {passwordReset ? (
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="font-medium">
+            Đặt lại mật khẩu thành công. Bạn có thể đăng nhập bằng mật khẩu mới.
+          </p>
+        </div>
+      ) : null}
+
       {registered ? (
         <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -256,6 +276,16 @@ function LoginForm() {
           className="font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline"
         >
           Đăng ký
+        </Link>
+      </p>
+
+      <p className="text-center text-sm text-slate-500">
+        Quên mật khẩu?{" "}
+        <Link
+          href="/forgot-password"
+          className="font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline"
+        >
+          Đặt lại mật khẩu
         </Link>
       </p>
     </div>
