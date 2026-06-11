@@ -166,6 +166,9 @@ export default function DashboardPage() {
   const totalIncome = summary?.totalIncome || 0;
   const totalExpense = summary?.totalExpense || 0;
   const currentBalance = Number(user?.balance) || 0;
+  const classifiedTransactions = transactions.filter(
+    (transaction) => transaction.classificationStatus === "CLASSIFIED"
+  );
 
   return (
     <main className="mx-auto max-w-7xl flex flex-col gap-6 px-1 py-3 sm:px-2">
@@ -191,7 +194,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <div className="flex flex-col gap-6 lg:col-span-8">
           <MonthlyReportCard
-            transactions={transactions}
+            transactions={classifiedTransactions}
             totalIncome={totalIncome}
             totalExpense={totalExpense}
             month={DEFAULT_MONTH}

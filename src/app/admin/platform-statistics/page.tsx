@@ -109,21 +109,6 @@ export default async function AdminPlatformStatisticsPage() {
       icon: ReceiptText,
     },
     {
-      label: "SePay đã xử lý",
-      value: data?.sepayProcessedCount,
-      icon: Database,
-    },
-    {
-      label: "SePay unmatched",
-      value: data?.sepayUnmatchedCount,
-      icon: ShieldAlert,
-    },
-    {
-      label: "SePay failed",
-      value: data?.sepayFailedCount,
-      icon: XCircle,
-    },
-    {
       label: "User liên kết BankHub",
       value: data?.linkedBankUsers,
       icon: Link2,
@@ -149,9 +134,6 @@ export default async function AdminPlatformStatisticsPage() {
                   <p className="text-sm font-semibold uppercase text-emerald-600">
                     MoneyTrack Admin
                   </p>
-                  <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600">
-                    ISR • cập nhật mỗi 60 giây
-                  </span>
                 </div>
                 <h1 className="mt-2 text-3xl font-extrabold text-slate-900">
                   Thống kê nền tảng

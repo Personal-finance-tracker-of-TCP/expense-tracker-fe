@@ -2,7 +2,16 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Loader2, RefreshCw, Send, ShieldCheck } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  DownloadCloud,
+  LinkIcon,
+  Loader2,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { formatCurrencyVND } from "@/lib/finance";
@@ -12,29 +21,48 @@ type LinkedUser = {
   id: string;
   name: string;
   email: string;
-  sepayCode: string | null;
+  bankhubAccountXid: string | null;
   bankAccountNumber: string | null;
+  bankName: string | null;
+  bankAccountName: string | null;
   sepayLinkedAt: string | null;
   role: string;
 };
 
-type TransferType = "credit" | "debit";
-
-type BankHubMockResponse = {
-  code?: number;
-  message?: string;
-  data?: {
-    transaction_id?: string;
-    reference_number?: string;
-    transaction_date?: string;
-    amount?: number;
-    transfer_type?: string;
-    accumulated?: number;
-  };
+type BankhubAccount = {
+  bankhubAccountXid: string | null;
+  bankAccountNumber: string | null;
+  bankName: string | null;
+  bankAccountName: string | null;
+  status?: unknown;
+  raw?: unknown;
 };
 
-const SUCCESS_TOAST =
-  "Đã gửi yêu cầu tạo giao dịch sandbox tới SePay. Đang chờ webhook.";
+type LinkedAccountsResponse = {
+  accounts: BankhubAccount[];
+  raw: unknown;
+};
+
+type TransferType = "credit" | "debit";
+type BankHubMockResponse = Record<string, unknown>;
+type WebhookWaitState = "idle" | "waiting" | "received" | "timeout";
+
+type SepayLog = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type SepayLogsResponse = {
+  logs: SepayLog[];
+};
+
+const CALLBACK_SUCCESS_TOAST =
+  "SePay đã tạo mock transaction. Đang chờ SePay callback về Notify URL.";
+const WEBHOOK_TIMEOUT_MESSAGE =
+  "Chưa nhận được webhook từ SePay. Kiểm tra Notify URL/IPN config trên SePay.";
+const WEBHOOK_RECEIVED_MESSAGE =
+  "Đã nhận webhook mới từ SePay. Kiểm tra SePay Logs hoặc danh sách giao dịch.";
 
 function formatLinkedAt(value?: string | null) {
   if (!value) return "-";
@@ -52,42 +80,35 @@ function formatLinkedAt(value?: string | null) {
 
 export default function BankHubSandboxPage() {
   const [users, setUsers] = useState<LinkedUser[]>([]);
+  const [bankhubAccounts, setBankhubAccounts] = useState<BankhubAccount[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [selectedAccountXid, setSelectedAccountXid] = useState("");
   const [transferType, setTransferType] = useState<TransferType>("credit");
   const [amount, setAmount] = useState("200000");
   const [content, setContent] = useState("Sandbox income demo");
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [assigningAccount, setAssigningAccount] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BankHubMockResponse | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    authFetch<LinkedUser[]>("/api/admin/linked-users", { admin: true })
-      .then((data) => {
-        if (!isMounted) return;
-
-        const linkedUsers = (data || []).filter((user) => user.bankAccountNumber);
-        setUsers(linkedUsers);
-        setSelectedUserId((current) => current || linkedUsers[0]?.id || "");
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        setError(err instanceof Error ? err.message : "Không thể tải danh sách user");
-      })
-      .finally(() => {
-        if (isMounted) setLoadingUsers(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const [webhookWaitState, setWebhookWaitState] =
+    useState<WebhookWaitState>("idle");
+  const [webhookWaitStartedAt, setWebhookWaitStartedAt] = useState<
+    number | null
+  >(null);
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) || null,
     [selectedUserId, users]
+  );
+
+  const selectedAccount = useMemo(
+    () =>
+      bankhubAccounts.find(
+        (account) => account.bankhubAccountXid === selectedAccountXid
+      ) || null,
+    [selectedAccountXid, bankhubAccounts]
   );
 
   const reloadUsers = async () => {
@@ -98,7 +119,8 @@ export default function BankHubSandboxPage() {
       const data = await authFetch<LinkedUser[]>("/api/admin/linked-users", {
         admin: true,
       });
-      const linkedUsers = (data || []).filter((user) => user.bankAccountNumber);
+      const linkedUsers = data || [];
+
       setUsers(linkedUsers);
       setSelectedUserId((current) =>
         linkedUsers.some((user) => user.id === current)
@@ -106,35 +128,165 @@ export default function BankHubSandboxPage() {
           : linkedUsers[0]?.id || ""
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải danh sách user");
+      setError(
+        err instanceof Error ? err.message : "Không thể tải danh sách user"
+      );
     } finally {
       setLoadingUsers(false);
     }
   };
 
-  const submitSandboxTransaction = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      reloadUsers();
+    }, 0);
 
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!webhookWaitStartedAt || webhookWaitState !== "waiting") return;
+
+    let stopped = false;
+
+    const markReceived = () => {
+      if (stopped) return;
+      setWebhookWaitState("received");
+      setWebhookWaitStartedAt(null);
+      toast.success(WEBHOOK_RECEIVED_MESSAGE);
+    };
+
+    const checkWebhookLogs = async () => {
+      try {
+        const data = await authFetch<SepayLogsResponse>(
+          "/api/admin/sepay-logs?limit=20",
+          { admin: true }
+        );
+        const hasNewLog = (data.logs || []).some((log) => {
+          const timestamp = Date.parse(log.createdAt || log.updatedAt || "");
+          return Number.isFinite(timestamp) && timestamp >= webhookWaitStartedAt;
+        });
+
+        if (hasNewLog) {
+          markReceived();
+        }
+      } catch {
+        // Polling should stay quiet; the timeout message tells admin what to check.
+      }
+    };
+
+    const pollTimer = window.setInterval(checkWebhookLogs, 5000);
+    const timeoutTimer = window.setTimeout(() => {
+      if (stopped) return;
+      setWebhookWaitState("timeout");
+      setWebhookWaitStartedAt(null);
+      toast.warning(WEBHOOK_TIMEOUT_MESSAGE);
+    }, 30000);
+
+    checkWebhookLogs();
+
+    return () => {
+      stopped = true;
+      window.clearInterval(pollTimer);
+      window.clearTimeout(timeoutTimer);
+    };
+  }, [webhookWaitStartedAt, webhookWaitState]);
+
+  const fetchBankhubAccounts = async () => {
+    setLoadingAccounts(true);
+    setError(null);
+
+    try {
+      const data = await authFetch<LinkedAccountsResponse>(
+        "/api/bankhub/linked-accounts",
+        { admin: true }
+      );
+      const accounts = data.accounts || [];
+
+      setBankhubAccounts(accounts);
+      setSelectedAccountXid((current) =>
+        accounts.some((account) => account.bankhubAccountXid === current)
+          ? current
+          : accounts[0]?.bankhubAccountXid || ""
+      );
+      toast.success("Đã lấy tài khoản BankHub từ SePay.");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể lấy account từ SePay"
+      );
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  const assignSelectedAccount = async () => {
+    if (!selectedUser || !selectedAccount?.bankhubAccountXid) {
+      setError("Vui lòng chọn user và tài khoản BankHub");
+      return;
+    }
+
+    setAssigningAccount(true);
+    setError(null);
+
+    try {
+      await authFetch(`/api/admin/users/${selectedUser.id}/bankhub-account`, {
+        method: "PATCH",
+        admin: true,
+        body: JSON.stringify({
+          bankhubAccountXid: selectedAccount.bankhubAccountXid,
+          bankAccountNumber: selectedAccount.bankAccountNumber,
+          bankName: selectedAccount.bankName,
+          bankAccountName: selectedAccount.bankAccountName,
+        }),
+      });
+      toast.success("Đã gán tài khoản BankHub cho user.");
+      await reloadUsers();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Không thể gán account cho user"
+      );
+    } finally {
+      setAssigningAccount(false);
+    }
+  };
+
+  const validateForm = () => {
     if (!selectedUser) {
       setError("Vui lòng chọn user đã liên kết BankHub Sandbox");
-      return;
+      return null;
+    }
+
+    if (!selectedUser.bankhubAccountXid) {
+      setError("User chưa có BankHub XID, hãy gán tài khoản BankHub trước.");
+      return null;
     }
 
     const parsedAmount = Number(amount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       setError("Số tiền phải là số lớn hơn 0");
-      return;
+      return null;
     }
 
     const trimmedContent = content.trim();
     if (!trimmedContent) {
       setError("Nội dung giao dịch là bắt buộc");
-      return;
+      return null;
     }
+
+    return { parsedAmount, trimmedContent };
+  };
+
+  const submitSandboxTransaction = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const validated = validateForm();
+    if (!validated || !selectedUser) return;
 
     setSubmitting(true);
     setError(null);
     setResult(null);
+    setWebhookWaitState("idle");
+    setWebhookWaitStartedAt(null);
+    const requestStartedAt = Date.now() - 2000;
 
     try {
       const response = await authFetch<BankHubMockResponse>(
@@ -145,14 +297,16 @@ export default function BankHubSandboxPage() {
           body: JSON.stringify({
             userId: selectedUser.id,
             transferType,
-            amount: parsedAmount,
-            content: trimmedContent,
+            amount: validated.parsedAmount,
+            content: validated.trimmedContent,
           }),
         }
       );
 
       setResult(response);
-      toast.success(SUCCESS_TOAST);
+      setWebhookWaitState("waiting");
+      setWebhookWaitStartedAt(requestStartedAt);
+      toast.success(CALLBACK_SUCCESS_TOAST);
     } catch (err) {
       setError(
         err instanceof Error
@@ -166,7 +320,7 @@ export default function BankHubSandboxPage() {
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 text-slate-950">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -181,22 +335,37 @@ export default function BankHubSandboxPage() {
                   Tạo giao dịch sandbox
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  Admin gửi mock transaction tới SePay BankHub Sandbox. MoneyTrack
-                  không tự tạo giao dịch ở bước này; giao dịch chỉ xuất hiện sau khi
+                  Admin gửi mock transaction tới SePay bằng BankHub XID thật.
+                  MoneyTrack chỉ tạo giao dịch, số dư và thông báo sau khi
                   webhook SePay gọi về hệ thống.
                 </p>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={reloadUsers}
-              disabled={loadingUsers}
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loadingUsers ? "animate-spin" : ""}`} />
-              Làm mới user
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={fetchBankhubAccounts}
+                disabled={loadingAccounts}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+              >
+                <DownloadCloud
+                  className={`h-4 w-4 ${loadingAccounts ? "animate-spin" : ""}`}
+                />
+                Lấy tài khoản từ SePay
+              </button>
+              <button
+                type="button"
+                onClick={reloadUsers}
+                disabled={loadingUsers}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${loadingUsers ? "animate-spin" : ""}`}
+                />
+                Làm mới user
+              </button>
+            </div>
           </div>
         </section>
 
@@ -217,7 +386,7 @@ export default function BankHubSandboxPage() {
                   </div>
                 ) : users.length === 0 ? (
                   <div className="rounded-lg bg-white px-3 py-3 text-sm font-semibold text-slate-500">
-                    Chưa có user liên kết sandbox
+                    Chưa có user liên kết BankHub XID
                   </div>
                 ) : (
                   users.map((user) => {
@@ -234,12 +403,15 @@ export default function BankHubSandboxPage() {
                             : "border-transparent bg-transparent text-slate-600 hover:bg-white"
                         }`}
                       >
-                        <span className="block text-sm font-bold">{user.name}</span>
+                        <span className="block text-sm font-bold">
+                          {user.name}
+                        </span>
                         <span className="mt-0.5 block truncate text-xs text-slate-500">
                           {user.email}
                         </span>
-                        <span className="mt-1 block break-all text-xs font-semibold text-emerald-700">
-                          {user.bankAccountNumber}
+                        <span className="mt-1 block text-xs font-semibold text-emerald-700">
+                          {user.bankName || "BankHub"} -{" "}
+                          {user.bankAccountNumber || "-"}
                         </span>
                       </button>
                     );
@@ -248,31 +420,76 @@ export default function BankHubSandboxPage() {
               </div>
             </div>
 
+            {bankhubAccounts.length > 0 ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+                <p className="text-sm font-bold text-emerald-900">
+                  Gán tài khoản SePay cho user
+                </p>
+                <select
+                  value={selectedAccountXid}
+                  onChange={(event) => setSelectedAccountXid(event.target.value)}
+                  className="mt-3 h-11 w-full rounded-lg border border-emerald-200 bg-white px-3 text-sm font-semibold outline-none"
+                >
+                  {bankhubAccounts.map((account) => (
+                    <option
+                      key={
+                        account.bankhubAccountXid ||
+                        account.bankAccountNumber ||
+                        ""
+                      }
+                      value={account.bankhubAccountXid || ""}
+                    >
+                      {account.bankName || "BankHub"} -{" "}
+                      {account.bankAccountNumber || "-"} -{" "}
+                      {account.bankhubAccountXid}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={assignSelectedAccount}
+                  disabled={assigningAccount || !selectedAccountXid || !selectedUser}
+                  className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                >
+                  {assigningAccount ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <LinkIcon className="h-4 w-4" />
+                  )}
+                  Gán account cho user đang chọn
+                </button>
+              </div>
+            ) : null}
+
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-semibold uppercase text-slate-400">
                 Tài khoản BankHub Sandbox
               </p>
-              <p className="mt-1 break-all text-sm font-extrabold text-slate-900">
-                {selectedUser?.bankAccountNumber || "-"}
-              </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="text-xs text-slate-500">Mã chuyển khoản tiền thật</p>
-                  <p className="mt-1 text-sm font-bold text-slate-800">
-                    {selectedUser?.sepayCode || "-"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Liên kết lúc</p>
-                  <p className="mt-1 text-sm font-bold text-slate-800">
-                    {formatLinkedAt(selectedUser?.sepayLinkedAt)}
-                  </p>
-                </div>
+                {[
+                  ["Ngân hàng", selectedUser?.bankName || "-"],
+                  ["Chủ tài khoản", selectedUser?.bankAccountName || "-"],
+                  ["Số tài khoản", selectedUser?.bankAccountNumber || "-"],
+                  ["BankHub XID", selectedUser?.bankhubAccountXid || "-"],
+                  [
+                    "Liên kết lúc",
+                    formatLinkedAt(selectedUser?.sepayLinkedAt),
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-xs text-slate-500">{label}</p>
+                    <p className="mt-1 break-all text-sm font-bold text-slate-800">
+                      {value}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-slate-700">Loại giao dịch</p>
+              <p className="text-sm font-semibold text-slate-700">
+                Loại giao dịch
+              </p>
               <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
                 {[
                   {
@@ -346,7 +563,7 @@ export default function BankHubSandboxPage() {
 
           <button
             type="submit"
-            disabled={submitting || loadingUsers || !selectedUser}
+            disabled={submitting || loadingUsers || !selectedUser?.bankhubAccountXid}
             className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? (
@@ -360,12 +577,53 @@ export default function BankHubSandboxPage() {
 
         <aside className="space-y-6">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="font-bold text-slate-900">Cấu hình SePay</h2>
+            <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+              <p>
+                Trên SePay BankHub Sandbox, cấu hình Notify URL/IPN trỏ về
+                backend public qua ngrok, không dùng localhost.
+              </p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-400">
+                  Notify URL/IPN
+                </p>
+                <p className="mt-1 break-all font-bold text-slate-900">
+                  https://&lt;ngrok-domain&gt;/api/webhooks/sepay
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-400">
+                  Test tunnel
+                </p>
+                <p className="mt-1 break-all font-bold text-slate-900">
+                  GET https://&lt;ngrok-domain&gt;/api/webhooks/health
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold uppercase text-slate-400">
+                  Header webhook
+                </p>
+                <p className="mt-1 font-bold text-slate-900">
+                  Authorization: Apikey &lt;SEPAY_WEBHOOK_SECRET&gt;
+                </p>
+                <p className="text-xs text-slate-500">
+                  Hoặc dùng x-sepay-secret với cùng giá trị secret.
+                </p>
+              </div>
+              <p className="text-xs text-slate-500">
+                Backend cần có BANKHUB_CLIENT_ID, BANKHUB_CLIENT_SECRET,
+                BANKHUB_API_BASE_URL và SEPAY_WEBHOOK_SECRET trong file .env.
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="font-bold text-slate-900">Payload gửi SePay</h2>
             <dl className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-slate-500">bank_account_xid</dt>
                 <dd className="max-w-[180px] break-all text-right font-bold text-slate-900">
-                  {selectedUser?.bankAccountNumber || "-"}
+                  {selectedUser?.bankhubAccountXid || "-"}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
@@ -385,8 +643,9 @@ export default function BankHubSandboxPage() {
             <h2 className="font-bold text-slate-900">Kết quả BankHub</h2>
             {!result ? (
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Sau khi submit thành công, trang chỉ hiển thị phản hồi từ BankHub.
-                Giao dịch trong MoneyTrack sẽ được tạo bởi webhook SePay.
+                Sau khi submit thành công, trang chỉ hiển thị phản hồi từ
+                BankHub. Giao dịch trong MoneyTrack sẽ được tạo bởi webhook
+                SePay.
               </p>
             ) : (
               <div className="mt-4 space-y-3">
@@ -398,14 +657,29 @@ export default function BankHubSandboxPage() {
                     Đang chờ webhook từ SePay
                   </p>
                 </div>
+                {webhookWaitState === "waiting" ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+                    {CALLBACK_SUCCESS_TOAST}
+                  </div>
+                ) : null}
+                {webhookWaitState === "received" ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+                    {WEBHOOK_RECEIVED_MESSAGE}
+                  </div>
+                ) : null}
+                {webhookWaitState === "timeout" ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                    {WEBHOOK_TIMEOUT_MESSAGE}
+                  </div>
+                ) : null}
                 <pre className="max-h-[360px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-white">
                   {JSON.stringify(result, null, 2)}
                 </pre>
                 <Link
-                  href="/transactions"
+                  href="/admin/sepay-logs"
                   className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
                 >
-                  Mở danh sách giao dịch để kiểm tra webhook
+                  Mở SePay Logs để kiểm tra webhook
                 </Link>
               </div>
             )}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Bell, Check, Loader2, MailOpen, Trash2 } from "lucide-react";
-import { authFetch } from "@/lib/moneytrack-api";
+import { Bell, Check, Loader2, MailOpen } from "lucide-react";
+import { ApiRequestError, authFetch } from "@/lib/moneytrack-api";
 
 type Notification = {
   id: string;
@@ -18,6 +18,7 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch notifications
@@ -26,8 +27,14 @@ export function NotificationBell() {
     try {
       const data = await authFetch<Notification[]>("/api/notifications");
       setNotifications(data || []);
+      setNotificationError(null);
     } catch (error) {
-      console.error("Failed to fetch notifications:", error);
+      setNotifications([]);
+      setNotificationError(
+        error instanceof ApiRequestError && error.status === 404
+          ? "Chưa có API thông báo"
+          : "Không thể tải thông báo"
+      );
     } finally {
       if (showLoader) setLoading(false);
     }
@@ -35,13 +42,18 @@ export function NotificationBell() {
 
   // Poll notifications every 30 seconds
   useEffect(() => {
-    fetchNotifications(true);
+    const initialTimer = window.setTimeout(() => {
+      fetchNotifications(true);
+    }, 0);
 
     const interval = setInterval(() => {
       fetchNotifications(false);
     }, 30000);
 
-    return () => clearInterval(interval);
+    return () => {
+      window.clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, []);
 
   // Handle click outside to close dropdown
@@ -62,8 +74,8 @@ export function NotificationBell() {
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, isRead: true }))
       );
-    } catch (error) {
-      console.error("Failed to mark all as read:", error);
+    } catch {
+      setNotificationError("Không thể đánh dấu tất cả thông báo");
     }
   };
 
@@ -75,8 +87,8 @@ export function NotificationBell() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error);
+    } catch {
+      setNotificationError("Không thể đánh dấu thông báo");
     }
   };
 
@@ -102,7 +114,7 @@ export function NotificationBell() {
         hour: "2-digit",
         minute: "2-digit",
       });
-    } catch (e) {
+    } catch {
       return "";
     }
   };
@@ -145,7 +157,14 @@ export function NotificationBell() {
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y divide-slate-50">
-            {notifications.length === 0 ? (
+            {notificationError ? (
+              <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+                <MailOpen className="h-8 w-8 text-slate-300" />
+                <p className="mt-2 text-sm font-medium text-slate-400">
+                  {notificationError}
+                </p>
+              </div>
+            ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center px-4">
                 <MailOpen className="h-8 w-8 text-slate-300" />
                 <p className="mt-2 text-sm font-medium text-slate-400">Không có thông báo mới nào</p>

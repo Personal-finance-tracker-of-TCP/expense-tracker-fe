@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { RefreshCcw, Plus, X, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import { authFetch, getCurrentDemoPeriod, toNumber } from "@/lib/moneytrack-api";
 import { formatCurrency } from "@/components/dashboard/MoneyAmount";
@@ -29,6 +30,7 @@ type Transaction = {
   amount: number | string;
   note?: string | null;
   source: "MANUAL" | "SEPAY";
+  classificationStatus?: "UNCLASSIFIED" | "CLASSIFIED" | "EXCLUDED";
   categoryId?: string | null;
   category?: Category | null;
   sepayId?: string | null;
@@ -139,6 +141,7 @@ export default function TransactionsPage() {
 
   // Dialog Modals State
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [pendingExcludeTransaction, setPendingExcludeTransaction] = useState<Transaction | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [creating, setCreating] = useState(false);
@@ -160,6 +163,10 @@ export default function TransactionsPage() {
   const classifyCategoryId = useWatch({
     control: classifyForm.control,
     name: "categoryId",
+  });
+  const classifyType = useWatch({
+    control: classifyForm.control,
+    name: "type",
   });
 
   // Available Periods Mapper
@@ -203,7 +210,7 @@ export default function TransactionsPage() {
 
   // Load User, Mask pref, and transactions
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const initialTimer = window.setTimeout(() => {
       const maskedPref = localStorage.getItem("balance_masked");
       if (maskedPref === "true") {
         setIsMasked(true);
@@ -222,7 +229,9 @@ export default function TransactionsPage() {
       if (catParam === "UNCLASSIFIED" || filterParam === "uncategorized") {
         setCategoryFilter("UNCLASSIFIED");
       }
-    }
+    }, 0);
+
+    return () => window.clearTimeout(initialTimer);
   }, []);
 
   async function loadData() {
@@ -258,7 +267,11 @@ export default function TransactionsPage() {
 
   // Refetch when month filters change
   useEffect(() => {
-    loadData();
+    const loadTimer = window.setTimeout(() => {
+      loadData();
+    }, 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, [monthFilter]);
 
   // Sync budgets after classification
@@ -269,11 +282,13 @@ export default function TransactionsPage() {
   // Open classification dialog
   function openClassifyModal(transaction: Transaction) {
     setSelectedTransaction(transaction);
-    const expenseCats = categories.filter((c) => c.type === "EXPENSE" || c.type === "BOTH");
+    const matchingCats = categories.filter(
+      (c) => c.type === transaction.type || c.type === "BOTH"
+    );
     classifyForm.reset({
-      type: "EXPENSE",
+      type: transaction.type,
       amount: toNumber(transaction.amount),
-      categoryId: transaction.categoryId || expenseCats[0]?.id || "",
+      categoryId: transaction.categoryId || matchingCats[0]?.id || "",
       note: transaction.note || "",
       transactionDate: transaction.transactionDate.split("T")[0] || getTodayDate(),
     });
@@ -288,14 +303,11 @@ export default function TransactionsPage() {
     setSyncing(true);
     setError(null);
     try {
-      await authFetch<Transaction>(`/api/transactions/${selectedTransaction.id}`, {
-        method: "PUT",
+      await authFetch<Transaction>(`/api/transactions/${selectedTransaction.id}/classify`, {
+        method: "PATCH",
         body: JSON.stringify({
           categoryId: values.categoryId,
-          type: values.type,
-          amount: values.amount,
           note: values.note || "",
-          transactionDate: new Date(values.transactionDate).toISOString(),
         }),
       });
 
@@ -305,6 +317,31 @@ export default function TransactionsPage() {
       setNotice("Phân loại giao dịch thành công. Kế hoạch ngân sách đã được cập nhật.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi khi phân loại giao dịch");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  function openExcludeModal(transaction: Transaction) {
+    setPendingExcludeTransaction(transaction);
+    setError(null);
+  }
+
+  async function confirmExcludeTransaction() {
+    if (!pendingExcludeTransaction) return;
+
+    setSyncing(true);
+    setError(null);
+    try {
+      await authFetch<Transaction>(`/api/transactions/${pendingExcludeTransaction.id}/exclude`, {
+        method: "PATCH",
+      });
+      await Promise.all([loadData(), loadBudgetsForSync()]);
+      router.refresh();
+      setPendingExcludeTransaction(null);
+      toast.success("Đã bỏ qua phân loại. Giao dịch vẫn được giữ trong lịch sử.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể bỏ qua giao dịch");
     } finally {
       setSyncing(false);
     }
@@ -381,8 +418,14 @@ export default function TransactionsPage() {
       if (sourceFilter !== "ALL" && tx.source !== sourceFilter) return false;
 
       // 4. Category Filter
-      if (categoryFilter === "UNCLASSIFIED" && tx.categoryId) return false;
-      if (categoryFilter !== "ALL" && categoryFilter !== "UNCLASSIFIED" && tx.categoryId !== categoryFilter) return false;
+      if (categoryFilter === "UNCLASSIFIED" && tx.classificationStatus !== "UNCLASSIFIED") return false;
+      if (categoryFilter === "EXCLUDED" && tx.classificationStatus !== "EXCLUDED") return false;
+      if (
+        categoryFilter !== "ALL" &&
+        categoryFilter !== "UNCLASSIFIED" &&
+        categoryFilter !== "EXCLUDED" &&
+        tx.categoryId !== categoryFilter
+      ) return false;
 
       return true;
     });
@@ -392,7 +435,9 @@ export default function TransactionsPage() {
   const totals = useMemo(() => {
     let income = 0;
     let expense = 0;
-    filteredTransactions.forEach((tx) => {
+    filteredTransactions
+      .filter((tx) => tx.classificationStatus === "CLASSIFIED")
+      .forEach((tx) => {
       const val = Number(tx.amount) || 0;
       if (tx.type === "INCOME") {
         income += val;
@@ -405,7 +450,7 @@ export default function TransactionsPage() {
 
   // Unclassified transactions count in currently loaded list
   const unclassifiedCount = useMemo(() => {
-    return transactions.filter((tx) => !tx.categoryId).length;
+    return transactions.filter((tx) => tx.classificationStatus === "UNCLASSIFIED").length;
   }, [transactions]);
 
   // Grouped transactions by day: returns object { "YYYY-MM-DD": Transaction[] }
@@ -591,10 +636,67 @@ export default function TransactionsPage() {
               dateStr={group.dateStr}
               transactions={group.items}
               onClassify={openClassifyModal}
+              onExclude={openExcludeModal}
             />
           ))
         )}
       </div>
+
+      {/* Exclude Confirmation Modal */}
+      {pendingExcludeTransaction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl animate-in fade-in-50 zoom-in-95 duration-150">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base font-extrabold text-slate-900">Bỏ qua phân loại?</h2>
+                <p className="mt-1 text-sm font-medium leading-6 text-slate-500">
+                  Giao dịch này sẽ không được tính vào báo cáo tài chính. Bạn vẫn có thể xem trong lịch sử giao dịch.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPendingExcludeTransaction(null)}
+                className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="truncate text-sm font-bold text-slate-800">
+                {pendingExcludeTransaction.note || "Giao dịch SePay"}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                {formatCurrency(Number(pendingExcludeTransaction.amount))} ·{" "}
+                {new Date(pendingExcludeTransaction.transactionDate).toLocaleDateString("vi-VN")}
+              </p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingExcludeTransaction(null)}
+                disabled={syncing}
+                className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Giữ lại
+              </button>
+              <button
+                type="button"
+                onClick={confirmExcludeTransaction}
+                disabled={syncing}
+                className="h-11 rounded-2xl bg-amber-500 px-4 text-sm font-bold text-white shadow-lg shadow-amber-500/20 transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {syncing ? "Đang bỏ qua..." : "Bỏ qua phân loại"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Classification Modal (PUT Update) */}
       {selectedTransaction ? (
@@ -643,7 +745,7 @@ export default function TransactionsPage() {
                   required
                 >
                   {categories
-                    .filter((c) => c.type === "EXPENSE" || c.type === "BOTH")
+                    .filter((c) => c.type === classifyType || c.type === "BOTH")
                     .map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.icon ? `${category.icon} ` : ""}
