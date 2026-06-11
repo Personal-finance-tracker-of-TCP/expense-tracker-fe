@@ -9,10 +9,11 @@ import {
   ExternalLink,
   Loader2,
   RefreshCw,
-  ShieldCheck,
+  Unlink,
   UserCircle,
 } from "lucide-react";
-import { ApiRequestError, authFetch } from "@/lib/moneytrack-api";
+import { toast } from "sonner";
+import { authFetch } from "@/lib/moneytrack-api";
 
 type StoredUser = {
   id?: string;
@@ -27,14 +28,6 @@ type StoredUser = {
   balance?: string | number;
 };
 
-type BankhubAccount = {
-  bankhubAccountXid: string | null;
-  bankAccountNumber: string | null;
-  bankName: string | null;
-  bankAccountName: string | null;
-  status?: unknown;
-};
-
 type HostedLinkResponse = {
   hostedLinkUrl?: string | null;
   hosted_link_url?: string | null;
@@ -45,7 +38,6 @@ type HostedLinkResponse = {
 type SyncResponse = StoredUser & {
   isLinked?: boolean;
   message?: string;
-  accounts?: BankhubAccount[];
 };
 
 const SANDBOX_DESCRIPTION =
@@ -87,11 +79,12 @@ export default function ProfilePage() {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [linkLoading, setLinkLoading] = useState(false);
-  const [syncLoading, setSyncLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [selectableAccounts, setSelectableAccounts] = useState<BankhubAccount[]>([]);
+  const [unlinkLoading, setUnlinkLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
+  const [showUnlinkConfirm, setShowUnlinkConfirm] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoadingProfile(true);
@@ -108,32 +101,43 @@ export default function ProfilePage() {
     }
   }, []);
 
+  const refreshProfileAndBankhub = useCallback(async () => {
+    setLoadingProfile(true);
+    setError(null);
+
+    try {
+      const data = await authFetch<StoredUser>("/api/bankhub/status");
+      setUser(data);
+      persistUser(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể làm mới trạng thái BankHub.");
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, []);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const storedUser = getStoredUserSnapshot();
       if (storedUser) {
         setUser(storedUser);
       }
-      loadProfile();
+      const params = new URLSearchParams(window.location.search);
+      const bankhubStatus = params.get("bankhub");
+
+      if (bankhubStatus === "linked") {
+        setNotice("BankHub đã chuyển bạn về MoneyTrack. Đang làm mới trạng thái liên kết.");
+        refreshProfileAndBankhub();
+      } else if (bankhubStatus === "unlinked") {
+        setNotice("BankHub đã chuyển bạn về MoneyTrack. Đang làm mới trạng thái hủy liên kết.");
+        refreshProfileAndBankhub();
+      } else {
+        loadProfile();
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadProfile]);
-
-  const mergeSyncedAccount = useCallback((data: SyncResponse) => {
-    setUser((prev) => {
-      const updated = {
-        ...(prev || {}),
-        bankhubAccountXid: data.bankhubAccountXid || null,
-        bankAccountNumber: data.bankAccountNumber || null,
-        bankName: data.bankName || null,
-        bankAccountName: data.bankAccountName || null,
-        sepayLinkedAt: data.sepayLinkedAt || null,
-      };
-      persistUser(updated);
-      return updated;
-    });
-  }, []);
+  }, [loadProfile, refreshProfileAndBankhub]);
 
   const handleCreateHostedLink = async () => {
     setLinkLoading(true);
@@ -147,16 +151,12 @@ export default function ProfilePage() {
       const url = data.hostedLinkUrl || data.hosted_link_url;
 
       if (!url) {
-        setNotice(
-          data.createdCompanyXid
-            ? `Đã tạo company ${data.createdCompanyXid}. Copy vào BANKHUB_COMPANY_XID rồi tạo link lại.`
-            : "BankHub không trả hosted link."
-        );
+        setError("Không nhận được Hosted Link từ BankHub.");
         return;
       }
 
       window.open(url, "_blank", "noopener,noreferrer");
-      setNotice("Đã mở Hosted Link. Sau khi liên kết xong, bấm Đồng bộ tài khoản.");
+      setNotice("Đã mở Hosted Link. Sau khi liên kết xong, quay lại MoneyTrack và bấm Đồng bộ tài khoản đã liên kết.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tạo Hosted Link.");
     } finally {
@@ -164,37 +164,23 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSyncAccount = async (bankhubAccountXid?: string | null) => {
-    setSyncLoading(true);
-    setError(null);
-    setNotice(null);
-
+  const tryRestoreExistingLink = async () => {
     try {
       const data = await authFetch<SyncResponse>("/api/bankhub/sync-linked-account", {
         method: "POST",
-        body: JSON.stringify(
-          bankhubAccountXid ? { bankhubAccountXid } : {}
-        ),
       });
 
-      if (data.bankhubAccountXid) {
-        mergeSyncedAccount(data);
-        setSelectableAccounts([]);
-        setNotice("Đã đồng bộ tài khoản BankHub Sandbox.");
-      } else {
-        setNotice(data.message || "Chưa có tài khoản BankHub mới để đồng bộ.");
-      }
-    } catch (err) {
-      if (err instanceof ApiRequestError) {
-        const body = err.body as { data?: { accounts?: BankhubAccount[] } } | null;
-        const accounts = body?.data?.accounts || [];
-        if (accounts.length > 0) {
-          setSelectableAccounts(accounts);
-        }
-      }
-      setError(err instanceof Error ? err.message : "Không thể đồng bộ tài khoản.");
-    } finally {
-      setSyncLoading(false);
+      if (!data.bankhubAccountXid) return false;
+
+      setUser((prev) => {
+        const updated = { ...(prev || {}), ...data };
+        persistUser(updated);
+        return updated;
+      });
+      setNotice("Đã khôi phục liên kết BankHub Sandbox có sẵn. Không cần liên kết lại.");
+      return true;
+    } catch {
+      return false;
     }
   };
 
@@ -205,6 +191,46 @@ export default function ProfilePage() {
       setCopied(key);
       setTimeout(() => setCopied(null), 2000);
     });
+  };
+
+  const handleUnlinkBankhub = async () => {
+    setUnlinkLoading(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const data = await authFetch<StoredUser>("/api/bankhub/unlink-local", {
+        method: "PATCH",
+      });
+      setUser(data);
+      persistUser(data);
+      setShowUnlinkConfirm(false);
+      toast.success("Đã hủy liên kết trong MoneyTrack.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể hủy liên kết BankHub.");
+    } finally {
+      setUnlinkLoading(false);
+    }
+  };
+
+  const handleRestoreExistingLink = async () => {
+    setRestoreLoading(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const restored = await tryRestoreExistingLink();
+
+      if (restored) {
+        setNotice("Đã khôi phục liên kết BankHub Sandbox có sẵn.");
+      } else {
+        setNotice("Chưa tìm thấy tài khoản BankHub có sẵn để khôi phục.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể khôi phục liên kết BankHub.");
+    } finally {
+      setRestoreLoading(false);
+    }
   };
 
   const isLinked = Boolean(user?.bankhubAccountXid);
@@ -238,7 +264,7 @@ export default function ProfilePage() {
 
             <button
               type="button"
-              onClick={loadProfile}
+              onClick={refreshProfileAndBankhub}
               disabled={loadingProfile}
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
             >
@@ -303,46 +329,33 @@ export default function ProfilePage() {
                 )}
                 Liên kết BankHub Sandbox
               </button>
-              <button
-                type="button"
-                onClick={() => handleSyncAccount()}
-                disabled={syncLoading}
-                className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {syncLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ShieldCheck className="h-4 w-4" />
-                )}
-                Đồng bộ tài khoản đã liên kết
-              </button>
+              {isLinked ? (
+                <button
+                  type="button"
+                  onClick={() => setShowUnlinkConfirm(true)}
+                  disabled={unlinkLoading}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-200 bg-white px-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                >
+                  {unlinkLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Unlink className="h-4 w-4" />
+                  )}
+                  Hủy liên kết
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRestoreExistingLink}
+                  disabled={restoreLoading}
+                  className="inline-flex h-9 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-4 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${restoreLoading ? "animate-spin" : ""}`} />
+                  Đồng bộ tài khoản đã liên kết
+                </button>
+              )}
             </div>
           </div>
-
-          {selectableAccounts.length > 0 ? (
-            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-bold text-amber-900">
-                Có nhiều tài khoản BankHub. Chọn tài khoản cần gán:
-              </p>
-              <div className="mt-3 grid gap-2">
-                {selectableAccounts.map((account) => (
-                  <button
-                    key={account.bankhubAccountXid || account.bankAccountNumber}
-                    type="button"
-                    onClick={() => handleSyncAccount(account.bankhubAccountXid)}
-                    className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-left text-sm transition-colors hover:bg-amber-100"
-                  >
-                    <span className="block font-bold">
-                      {account.bankName || "BankHub"} - {account.bankAccountNumber || "-"}
-                    </span>
-                    <span className="block text-xs text-slate-500">
-                      {account.bankAccountName || "-"} · {account.bankhubAccountXid}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {detailRows.map(([label, value]) => (
@@ -397,6 +410,56 @@ export default function ProfilePage() {
           ) : null}
         </div>
       </div>
+
+      {showUnlinkConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-50 text-red-600 ring-1 ring-red-100">
+                <Unlink className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="text-lg font-bold text-slate-950">
+                  Hủy liên kết BankHub Sandbox?
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Thao tác này chỉ hủy liên kết trong MoneyTrack, không hủy tài khoản
+                  trên SePay Sandbox. Bạn có thể đồng bộ lại tài khoản đã liên kết sau.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-xs font-medium text-slate-500">
+                Tài khoản đang liên kết
+              </p>
+              <p className="mt-1 break-all text-sm font-bold text-slate-900">
+                {user?.bankName || "BankHub Sandbox"} · {user?.bankAccountNumber || "-"}
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setShowUnlinkConfirm(false)}
+                disabled={unlinkLoading}
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              >
+                Giữ liên kết
+              </button>
+              <button
+                type="button"
+                onClick={handleUnlinkBankhub}
+                disabled={unlinkLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {unlinkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Hủy liên kết trong MoneyTrack
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
