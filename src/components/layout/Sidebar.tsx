@@ -14,7 +14,6 @@ import {
   Shield,
   Users,
   MessageSquareText,
-  Bell,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -106,6 +105,7 @@ export function Sidebar({ className }: SidebarProps) {
   ];
 
   const adminItems: SidebarItem[] = [
+    { href: "/admin", label: "Tổng quan quản trị", icon: LayoutDashboard },
     {
       href: "/admin/statistics",
       label: "Thống kê nền tảng",
@@ -115,7 +115,6 @@ export function Sidebar({ className }: SidebarProps) {
     { href: "/admin/bankhub-sandbox", label: "BankHub Sandbox", icon: Shield },
     { href: "/admin/sepay-logs", label: "SePay Logs", icon: Shield },
     { href: "/admin/linked-users", label: "Người dùng liên kết", icon: Users },
-    { href: "/admin/notifications", label: "Thông báo", icon: Bell },
   ];
 
   const shouldShowBackdrop = !isDesktop && isOpen;
