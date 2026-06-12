@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { type ApiEnvelope, type AuthPayload } from "@/lib/auth";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -53,7 +54,7 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      await api.post("/auth/register", {
+      await api.post<ApiEnvelope<AuthPayload>>("/auth/register", {
         fullName: data.fullName,
         email: data.email,
         password: data.password,
@@ -71,9 +72,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="space-y-7">
+    <div className="mx-auto w-full max-w-md space-y-7">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-950">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">
+          Create workspace
+        </p>
+        <h1 className="text-3xl font-black tracking-tight text-slate-950">
           Tạo tài khoản mới
         </h1>
         <p className="text-sm leading-6 text-slate-500">
@@ -95,7 +99,7 @@ export default function RegisterPage() {
             placeholder="Nguyễn Văn A"
             autoComplete="name"
             aria-invalid={Boolean(errors.fullName)}
-            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+            className="h-12 border-teal-100 bg-teal-50/50 px-3 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
             {...register("fullName")}
           />
           {errors.fullName ? (
@@ -113,7 +117,7 @@ export default function RegisterPage() {
             placeholder="you@example.com"
             autoComplete="email"
             aria-invalid={Boolean(errors.email)}
-            className="h-11 border-slate-200 bg-slate-50 px-3 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+            className="h-12 border-teal-100 bg-teal-50/50 px-3 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
             {...register("email")}
           />
           {errors.email ? (
@@ -135,13 +139,13 @@ export default function RegisterPage() {
               placeholder="Ít nhất 8 ký tự"
               autoComplete="new-password"
               aria-invalid={Boolean(errors.password)}
-              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+              className="h-12 border-teal-100 bg-teal-50/50 px-3 pr-11 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
               {...register("password")}
             />
             <button
               type="button"
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-teal-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30"
               onClick={() => setShowPassword((value) => !value)}
             >
               {showPassword ? (
@@ -170,7 +174,7 @@ export default function RegisterPage() {
               placeholder="Nhập lại mật khẩu"
               autoComplete="new-password"
               aria-invalid={Boolean(errors.confirmPassword)}
-              className="h-11 border-slate-200 bg-slate-50 px-3 pr-11 text-slate-950 placeholder:text-slate-400 focus-visible:border-blue-500 focus-visible:ring-blue-500/20"
+              className="h-12 border-teal-100 bg-teal-50/50 px-3 pr-11 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
               {...register("confirmPassword")}
             />
             <button
@@ -180,7 +184,7 @@ export default function RegisterPage() {
                   ? "Ẩn xác nhận mật khẩu"
                   : "Hiện xác nhận mật khẩu"
               }
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition hover:bg-teal-100 hover:text-teal-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/30"
               onClick={() => setShowConfirmPassword((value) => !value)}
             >
               {showConfirmPassword ? (
@@ -200,7 +204,7 @@ export default function RegisterPage() {
         {errors.root?.message ? (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+            className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
           >
             {errors.root.message}
           </div>
@@ -210,7 +214,7 @@ export default function RegisterPage() {
           type="submit"
           disabled={isSubmitting}
           className={cn(
-            "h-11 w-full bg-blue-600 text-base font-semibold text-white shadow-sm shadow-blue-500/20 hover:bg-blue-700",
+            "h-12 w-full bg-[linear-gradient(135deg,#0f766e,#2563eb)] text-base font-bold text-white shadow-lg shadow-teal-700/20 hover:opacity-95",
             isSubmitting && "cursor-not-allowed opacity-80"
           )}
         >
@@ -225,7 +229,7 @@ export default function RegisterPage() {
         Đã có tài khoản?{" "}
         <Link
           href="/login"
-          className="font-semibold text-blue-600 transition hover:text-blue-700 hover:underline"
+          className="font-bold text-teal-700 transition hover:text-teal-800 hover:underline"
         >
           Đăng nhập
         </Link>

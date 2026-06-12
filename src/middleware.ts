@@ -8,6 +8,7 @@ const protectedRoutes = [
   "/reports",
   "/ai-advisor",
   "/profile",
+  "/change-password",
 ];
 
 export function middleware(request: NextRequest) {
@@ -16,6 +17,10 @@ export function middleware(request: NextRequest) {
 
   const isAuthPage =
     pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isAuthRecoveryPage =
+    pathname.startsWith("/login") &&
+    (request.nextUrl.searchParams.has("expired") ||
+      request.nextUrl.searchParams.get("oauth") === "failed");
   const isProtectedRoute = protectedRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
@@ -24,7 +29,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (token && isAuthPage) {
+  if (token && isAuthPage && !isAuthRecoveryPage) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
