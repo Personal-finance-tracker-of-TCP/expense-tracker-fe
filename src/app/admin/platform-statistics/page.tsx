@@ -3,12 +3,9 @@ import { redirect } from "next/navigation";
 import {
   BarChart3,
   Bell,
-  Database,
   Link2,
   ReceiptText,
-  ShieldAlert,
   Users,
-  XCircle,
 } from "lucide-react";
 
 // This page uses ISR with revalidate = 60.

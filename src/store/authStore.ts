@@ -22,6 +22,7 @@ interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  hydrateFromStorage: () => void;
   setAuth: (user: User, accessToken: string, refreshToken?: string | null) => void;
   setUser: (user: User) => void;
   clearAuth: () => void;
@@ -67,6 +68,26 @@ function getStoredAccessToken() {
   }
 
   return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+}
+
+function getStoredRefreshToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+}
+
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
 }
 
 export function setAccessTokenCookie(accessToken: string) {
@@ -122,14 +143,38 @@ function removeStoredAuth() {
   }
 }
 
-const storedUser = getStoredUser();
-const storedAccessToken = getStoredAccessToken();
-
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: storedUser,
-  accessToken: storedAccessToken,
+  user: null,
+  accessToken: null,
   refreshToken: null,
-  isAuthenticated: Boolean(storedAccessToken),
+  isAuthenticated: false,
+  hydrateFromStorage: () => {
+    const accessToken = getStoredAccessToken() || getCookieValue(ACCESS_TOKEN_COOKIE);
+    const refreshToken = getStoredRefreshToken();
+    const user = getStoredUser();
+
+    if (!accessToken) {
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+      return;
+    }
+
+    setAccessTokenCookie(accessToken);
+    if (user) {
+      setUserRoleCookie(user.role);
+    }
+
+    set({
+      user,
+      accessToken,
+      refreshToken,
+      isAuthenticated: true,
+    });
+  },
   setAuth: (user, accessToken, refreshToken = null) => {
     setAccessTokenCookie(accessToken);
     setUserRoleCookie(user.role);

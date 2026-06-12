@@ -7,9 +7,14 @@ import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
 export function AuthBootstrap() {
+  const hydrateFromStorage = useAuthStore((state) => state.hydrateFromStorage);
   const setUser = useAuthStore((state) => state.setUser);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  useEffect(() => {
+    hydrateFromStorage();
+  }, [hydrateFromStorage]);
 
   useEffect(() => {
     if (!isAuthenticated) {

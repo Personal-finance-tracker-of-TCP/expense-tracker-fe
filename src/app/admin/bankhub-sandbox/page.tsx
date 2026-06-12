@@ -558,7 +558,7 @@ export default function BankHubSandboxPage() {
                 </div>
               ) : bankhubAccounts.length === 0 ? (
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-500">
-                  Bấm "Lấy tài khoản đã liên kết từ SePay" để xem account list.
+                  Bấm &quot;Lấy tài khoản đã liên kết từ SePay&quot; để xem account list.
                 </div>
               ) : (
                 bankhubAccounts.map((account, index) => (

@@ -27,6 +27,15 @@ type SepayLogResult = {
   logs: SepayLog[];
 };
 
+async function fetchSepayLogsPage() {
+  const result = await authFetch<SepayLogResult>(
+    "/api/admin/sepay-logs?limit=100",
+    { admin: true }
+  );
+
+  return result.logs || [];
+}
+
 function getMatchedCode(content: string | null | undefined) {
   return content?.match(/\bMTU\d+\b/i)?.[0]?.toUpperCase() || "-";
 }
@@ -41,11 +50,8 @@ export default function SepayLogsPage() {
     setError(null);
 
     try {
-      const result = await authFetch<SepayLogResult>(
-        "/api/admin/sepay-logs?limit=100",
-        { admin: true }
-      );
-      setLogs(result.logs || []);
+      const nextLogs = await fetchSepayLogsPage();
+      setLogs(nextLogs);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot load SePay logs");
     } finally {
@@ -54,7 +60,30 @@ export default function SepayLogsPage() {
   }
 
   useEffect(() => {
-    loadLogs();
+    let ignore = false;
+
+    async function loadInitialLogs() {
+      try {
+        const nextLogs = await fetchSepayLogsPage();
+        if (!ignore) {
+          setLogs(nextLogs);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Cannot load SePay logs");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadInitialLogs();
+
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   return (

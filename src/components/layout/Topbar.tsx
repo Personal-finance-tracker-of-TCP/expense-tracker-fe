@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -42,6 +43,22 @@ export function Topbar() {
   const toggle = useSidebarStore((state) => state.toggle);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const user = useAuthStore((state) => state.user);
+  const [isMounted, setIsMounted] = useState(false);
+  const displayUser = isMounted ? user : null;
+
+  useEffect(() => {
+    let active = true;
+
+    queueMicrotask(() => {
+      if (active) {
+        setIsMounted(true);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     await api.post("/auth/logout").catch(() => null);
@@ -92,16 +109,19 @@ export function Topbar() {
             className="group inline-flex h-11 items-center gap-2 rounded-full border border-teal-100 bg-white p-1 pr-2 text-sm font-bold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-teal-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-500/20"
             aria-label="Mở menu tài khoản"
           >
-            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0f766e,#2563eb)] text-xs font-bold text-white shadow-lg shadow-teal-700/20">
-              {user?.avatarUrl ? (
+            <span
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-2xl bg-[linear-gradient(135deg,#0f766e,#2563eb)] text-xs font-bold text-white shadow-lg shadow-teal-700/20"
+              suppressHydrationWarning
+            >
+              {displayUser?.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={user.avatarUrl}
-                  alt={user.name}
+                  src={displayUser.avatarUrl}
+                  alt={displayUser.name}
                   className="h-full w-full object-cover"
                 />
               ) : (
-                getInitials(user?.name, user?.email)
+                getInitials(displayUser?.name, displayUser?.email)
               )}
             </span>
             <ChevronDown
@@ -116,10 +136,10 @@ export function Topbar() {
           >
             <div className="px-3 py-3">
               <p className="truncate text-sm font-black text-slate-950">
-                {user?.name || "Người dùng"}
+                {displayUser?.name || "Người dùng"}
               </p>
               <p className="mt-0.5 truncate text-xs text-slate-500">
-                {user?.email || "user@example.com"}
+                {displayUser?.email || "user@example.com"}
               </p>
             </div>
             <DropdownMenuSeparator className="mx-2 bg-teal-100" />

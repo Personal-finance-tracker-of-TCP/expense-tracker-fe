@@ -82,6 +82,7 @@ export function DashboardHeader({
 
         <div className="flex items-center gap-3">
           {user?.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- Avatar URLs can come from any auth provider domain.
             <img
               src={user.avatarUrl}
               alt={userName}

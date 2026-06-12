@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { Check, Edit3, Loader2, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,12 +31,6 @@ export function WalletCard({
 }: WalletCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draftBalance, setDraftBalance] = useState(String(Number(balance) || 0));
-
-  useEffect(() => {
-    if (!isEditing) {
-      setDraftBalance(String(Number(balance) || 0));
-    }
-  }, [balance, isEditing]);
 
   const formatBankAccount = (accountStr: string | null) => {
     if (!accountStr) return "";
@@ -119,7 +113,15 @@ export function WalletCard({
             {onUpdateBalance ? (
               <button
                 type="button"
-                onClick={() => setIsEditing((value) => !value)}
+                onClick={() => {
+                  if (isEditing) {
+                    setIsEditing(false);
+                    return;
+                  }
+
+                  setDraftBalance(String(Number(balance) || 0));
+                  setIsEditing(true);
+                }}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600"
                 aria-label="Chỉnh sửa số dư"
                 title="Chỉnh sửa số dư"
