@@ -201,11 +201,13 @@ export function ProfileForm({ user }: { user: User }) {
   useEffect(() => {
     if (state.status === "success" && state.user) {
       setUser(state.user);
-      setAvatarPreview(null);
-      setAvatarFileName("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      queueMicrotask(() => {
+        setAvatarPreview(null);
+        setAvatarFileName("");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      });
     }
   }, [state, setUser]);
 

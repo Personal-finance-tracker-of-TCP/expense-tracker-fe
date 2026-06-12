@@ -47,6 +47,7 @@ function LoginForm() {
   const registered = searchParams.get("registered") === "true";
   const oauthError = searchParams.get("oauth") === "failed";
   const sessionExpired = searchParams.get("expired") === "1";
+  const resetSuccess = searchParams.get("reset") === "success";
   const setAuth = useAuthStore((state) => state.setAuth);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const [showPassword, setShowPassword] = useState(false);
@@ -127,7 +128,8 @@ function LoginForm() {
 
     try {
       setIsGoogleLoading(true);
-      await signIn("google", { callbackUrl: "/oauth-callback" });
+      const callbackUrl = `${window.location.origin}/oauth-callback`;
+      await signIn("google", { callbackUrl });
     } catch {
       router.replace("/login?oauth=failed");
       setIsGoogleLoading(false);
@@ -135,40 +137,49 @@ function LoginForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-7">
+    <div className="mx-auto w-full max-w-md space-y-5">
       {registered ? (
-        <div className="flex items-start gap-3 rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p className="font-medium">Đăng ký thành công! Vui lòng đăng nhập.</p>
         </div>
       ) : null}
 
+      {resetSuccess ? (
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p className="font-medium">
+            Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.
+          </p>
+        </div>
+      ) : null}
+
       {oauthError ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 shadow-sm">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 shadow-sm">
           Đăng nhập Google thất bại. Vui lòng kiểm tra cấu hình OAuth hoặc thử
           đăng nhập bằng email.
         </div>
       ) : null}
 
       {sessionExpired ? (
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 shadow-sm">
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 shadow-sm">
           Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để mở hồ sơ.
         </div>
       ) : null}
 
-      <div className="space-y-2 text-center">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-teal-700">
+      <div className="space-y-1 text-left">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-teal-700">
           Welcome back
         </p>
-        <h1 className="text-3xl font-black tracking-tight text-slate-950">
+        <h1 className="text-2xl font-black tracking-tight text-slate-950">
           Đăng nhập
         </h1>
-        <p className="text-sm leading-6 text-slate-500">
+        <p className="text-sm leading-5 text-slate-500">
           Tiếp tục quản lý chi tiêu thông minh với FinTrack.
         </p>
       </div>
 
-      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
+      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium text-slate-700">
             Email
@@ -179,7 +190,7 @@ function LoginForm() {
             placeholder="you@example.com"
             autoComplete="email"
             aria-invalid={Boolean(errors.email)}
-            className="h-12 border-teal-100 bg-teal-50/50 px-3 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
+            className="h-11 border-teal-100 bg-teal-50/50 px-3 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
             {...register("email")}
           />
           {errors.email ? (
@@ -201,7 +212,7 @@ function LoginForm() {
               placeholder="Nhập mật khẩu"
               autoComplete="current-password"
               aria-invalid={Boolean(errors.password)}
-              className="h-12 border-teal-100 bg-teal-50/50 px-3 pr-11 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
+              className="h-11 border-teal-100 bg-teal-50/50 px-3 pr-11 text-slate-950 shadow-inner shadow-white/70 placeholder:text-slate-400 focus-visible:border-teal-500 focus-visible:ring-teal-500/20"
               {...register("password")}
             />
             <button
@@ -225,7 +236,7 @@ function LoginForm() {
         {errors.root?.message ? (
           <div
             role="alert"
-            className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
           >
             {errors.root.message}
           </div>
@@ -235,7 +246,7 @@ function LoginForm() {
           type="submit"
           disabled={isSubmitting}
           className={cn(
-            "h-12 w-full bg-[linear-gradient(135deg,#0f766e,#2563eb)] text-base font-bold text-white shadow-lg shadow-teal-700/20 hover:opacity-95",
+            "h-11 w-full bg-[linear-gradient(135deg,#0f766e,#2563eb)] text-base font-bold text-white shadow-lg shadow-teal-700/20 hover:opacity-95",
             isSubmitting && "cursor-not-allowed opacity-80"
           )}
         >
@@ -245,6 +256,15 @@ function LoginForm() {
           Đăng nhập
         </Button>
       </form>
+
+      <div className="-mt-2 flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-sm font-bold text-teal-700 transition hover:text-teal-800 hover:underline"
+        >
+          Quên mật khẩu?
+        </Link>
+      </div>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -259,7 +279,7 @@ function LoginForm() {
         type="button"
         variant="outline"
         disabled={isGoogleLoading || isGoogleConfigured === false}
-        className="h-12 w-full border-teal-100 bg-white text-base font-bold text-slate-800 shadow-sm hover:bg-teal-50"
+        className="h-11 w-full border-teal-100 bg-white text-base font-bold text-slate-800 shadow-sm hover:bg-teal-50"
         onClick={handleGoogleSignIn}
       >
         {isGoogleLoading ? (
@@ -271,7 +291,7 @@ function LoginForm() {
       </Button>
 
       {isGoogleConfigured === false ? (
-        <p className="rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-700">
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm font-bold text-amber-700">
           Google OAuth chưa được cấu hình trên môi trường này.
         </p>
       ) : null}

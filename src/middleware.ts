@@ -16,7 +16,9 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/forgot-password");
   const isAuthRecoveryPage =
     pathname.startsWith("/login") &&
     (request.nextUrl.searchParams.has("expired") ||

@@ -2,7 +2,6 @@ import {
   BarChart2,
   Download,
   FileSpreadsheet,
-  FileText,
   PieChart,
   TrendingDown,
   TrendingUp,
