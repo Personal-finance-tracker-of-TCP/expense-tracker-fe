@@ -1,32 +1,75 @@
-"use client";
-
 import { create } from "zustand";
 
-import { ACCESS_TOKEN_COOKIE, type User } from "@/lib/auth";
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl?: string | null;
+  role: "USER" | "ADMIN";
+  sepayCode?: string | null;
+  bankhubAccountXid?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  sepayLinkedAt?: string | null;
+  balance?: string | number | null;
+  provider?: string | null;
+  createdAt?: string | null;
+}
 
 interface AuthState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
-  hydrateAuth: () => void;
   setAuth: (user: User, accessToken: string, refreshToken?: string | null) => void;
   setUser: (user: User) => void;
-  updateTokens: (accessToken: string, refreshToken?: string | null) => void;
   clearAuth: () => void;
   updateUser: (partial: Partial<User>) => void;
 }
 
-const AUTH_STORAGE_KEY = "fintrack_auth";
+const ACCESS_TOKEN_COOKIE = "access_token";
+const USER_ROLE_COOKIE = "user_role";
 const ACCESS_TOKEN_MAX_AGE = 60 * 60 * 24 * 7;
+const ACCESS_TOKEN_STORAGE_KEY = "accessToken";
+const REFRESH_TOKEN_STORAGE_KEY = "refreshToken";
+const USER_STORAGE_KEY = "user";
+const AUTH_STORAGE_KEYS = [
+  ACCESS_TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+  USER_STORAGE_KEY,
+  "authUser",
+  "currentUser",
+  "adminAccessToken",
+];
 
-type PersistedAuth = {
-  user: User;
-  accessToken: string;
-  refreshToken?: string | null;
-};
+function getStoredUser() {
+  if (typeof window === "undefined") {
+    return null;
+  }
 
-function setAccessTokenCookie(accessToken: string) {
+  const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+
+  if (!storedUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser) as User;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredAccessToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+}
+
+export function setAccessTokenCookie(accessToken: string) {
   if (typeof document === "undefined") {
     return;
   }
@@ -36,103 +79,61 @@ function setAccessTokenCookie(accessToken: string) {
   )}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; SameSite=Lax`;
 }
 
+export function setUserRoleCookie(role: User["role"]) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${USER_ROLE_COOKIE}=${encodeURIComponent(
+    role
+  )}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; SameSite=Lax`;
+}
+
 function removeAccessTokenCookie() {
   if (typeof document === "undefined") {
     return;
   }
 
   document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  document.cookie = `${USER_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
 }
 
-function getAccessTokenCookie() {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const cookie = document.cookie
-    .split("; ")
-    .find((value) => value.startsWith(`${ACCESS_TOKEN_COOKIE}=`));
-
-  return cookie ? decodeURIComponent(cookie.split("=").slice(1).join("=")) : null;
-}
-
-function persistAuth(data: PersistedAuth) {
+function setStoredAuth(user: User, accessToken: string, refreshToken?: string) {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
+  }
 }
 
-function clearPersistedAuth() {
+function removeStoredAuth() {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.removeItem(AUTH_STORAGE_KEY);
-}
-
-const initialState = {
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  isAuthenticated: false,
-};
-
-function readPersistedState() {
-  try {
-    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) {
-      return {
-        user: null,
-        accessToken: getAccessTokenCookie(),
-        refreshToken: null,
-        isAuthenticated: Boolean(getAccessTokenCookie()),
-      };
-    }
-
-    const parsed = JSON.parse(raw) as PersistedAuth;
-    if (!parsed.user || !parsed.accessToken) {
-      throw new Error("Invalid auth storage");
-    }
-
-    setAccessTokenCookie(parsed.accessToken);
-
-    return {
-      user: parsed.user,
-      accessToken: parsed.accessToken,
-      refreshToken: parsed.refreshToken ?? null,
-      isAuthenticated: true,
-    };
-  } catch {
-    clearPersistedAuth();
-    removeAccessTokenCookie();
-
-    return {
-      user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-    };
+  for (const key of AUTH_STORAGE_KEYS) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
   }
 }
+
+const storedUser = getStoredUser();
+const storedAccessToken = getStoredAccessToken();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  ...initialState,
-  hydrateAuth: () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    set(readPersistedState());
-  },
+  user: storedUser,
+  accessToken: storedAccessToken,
+  refreshToken: null,
+  isAuthenticated: Boolean(storedAccessToken),
   setAuth: (user, accessToken, refreshToken = null) => {
     setAccessTokenCookie(accessToken);
-    persistAuth({
-      user,
-      accessToken,
-      refreshToken,
-    });
+    setUserRoleCookie(user.role);
+    setStoredAuth(user, accessToken, refreshToken ?? undefined);
     set({
       user,
       accessToken,
@@ -142,43 +143,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   setUser: (user) => {
     const state = get();
-    const accessToken = state.accessToken || getAccessTokenCookie();
+    const accessToken = state.accessToken;
 
     if (accessToken) {
-      persistAuth({
-        user,
-        accessToken,
-        refreshToken: state.refreshToken,
-      });
+      setStoredAuth(user, accessToken);
+    } else if (typeof window !== "undefined") {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
     }
 
     set({
       user,
-      accessToken,
-      isAuthenticated: true,
-    });
-  },
-  updateTokens: (accessToken, refreshToken) => {
-    const state = get();
-
-    setAccessTokenCookie(accessToken);
-    if (state.user) {
-      persistAuth({
-        user: state.user,
-        accessToken,
-        refreshToken: refreshToken ?? state.refreshToken,
-      });
-    }
-
-    set({
-      accessToken,
-      refreshToken: refreshToken ?? state.refreshToken,
       isAuthenticated: true,
     });
   },
   clearAuth: () => {
     removeAccessTokenCookie();
-    clearPersistedAuth();
+    removeStoredAuth();
     set({
       user: null,
       accessToken: null,
@@ -186,18 +166,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
     });
   },
-  updateUser: (partial) => {
-    const state = get();
-    const user = state.user ? { ...state.user, ...partial } : state.user;
+  updateUser: (partial) =>
+    set((state) => {
+      const user = state.user ? { ...state.user, ...partial } : state.user;
 
-    if (user && state.accessToken) {
-      persistAuth({
-        user,
-        accessToken: state.accessToken,
-        refreshToken: state.refreshToken,
-      });
-    }
+      if (typeof window !== "undefined" && user) {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+      }
 
-    set({ user });
-  },
+      return { user };
+    }),
 }));

@@ -1,0 +1,17 @@
+
+> expense-tracker-fe@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.18.192.1:3000
+- Environments: .env.local
+✓ Ready in 402ms
+Creating turbopack project {
+  dir: 'D:\\Documents\\PTIT DOC\\WD\\expense-tracker\\expense-tracker-fe',
+  testMode: true
+}
+
+ GET /login 200 in 2.7s (next.js: 2.4s, proxy.ts: 113ms, application-code: 239ms)
+ GET /login 200 in 103ms (next.js: 10ms, proxy.ts: 24ms, application-code: 68ms)
+[?25h

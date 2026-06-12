@@ -7,13 +7,16 @@ import api from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 
 export function AuthBootstrap() {
-  const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
   const setUser = useAuthStore((state) => state.setUser);
   const clearAuth = useAuthStore((state) => state.clearAuth);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
-    hydrateAuth();
 
     api
       .get<ApiEnvelope<ApiUser>>("/auth/me")
@@ -33,7 +36,7 @@ export function AuthBootstrap() {
     return () => {
       isMounted = false;
     };
-  }, [clearAuth, hydrateAuth, setUser]);
+  }, [clearAuth, isAuthenticated, setUser]);
 
   return null;
 }
