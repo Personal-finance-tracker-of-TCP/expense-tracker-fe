@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { PiggyBank } from "lucide-react";
 import { EmptyState } from "./EmptyState";
-import { formatCurrency } from "./MoneyAmount";
 
 type Category = {
   id: string;

@@ -44,6 +44,28 @@ export function FloatingChatbot() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { month, year } = getCurrentDemoPeriod();
+  const statusMeta: Record<AiConnectionStatus, { label: string; dotClass: string }> = {
+    checking: {
+      label: `Đang kiểm tra · ${providerLabel}`,
+      dotClass: "bg-amber-300",
+    },
+    connected: {
+      label: `Đã kết nối · ${providerLabel.toUpperCase()}`,
+      dotClass: "bg-emerald-400",
+    },
+    unauthorized: {
+      label: "Cần đăng nhập · AI",
+      dotClass: "bg-amber-300",
+    },
+    "not-configured": {
+      label: "Chưa cấu hình · AI",
+      dotClass: "bg-slate-400",
+    },
+    offline: {
+      label: "Mất kết nối · AI",
+      dotClass: "bg-rose-400",
+    },
+  };
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -76,7 +98,7 @@ export function FloatingChatbot() {
       }
     }
 
-    checkAiStatus();
+    void checkAiStatus();
 
     return () => {
       isActive = false;
@@ -181,14 +203,14 @@ export function FloatingChatbot() {
             <div className="flex items-center gap-3">
               <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20">
                 <Bot className="h-5.5 w-5.5" />
-                <span className="absolute bottom-[-1px] right-[-1px] block h-3 w-3 rounded-full bg-emerald-400 border-2 border-slate-900" />
+                <span className={`absolute bottom-[-1px] right-[-1px] block h-3 w-3 rounded-full border-2 border-slate-900 ${statusMeta[connectionStatus].dotClass}`} />
               </div>
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5 leading-none">
                   Trợ lý tài chính AI <Sparkles className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
                 </h3>
                 <span className="text-[10px] text-slate-400 font-semibold tracking-wide mt-1 block">
-                  Đã kết nối · GEMINI
+                  {statusMeta[connectionStatus].label}
                 </span>
               </div>
             </div>

@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Plus,
-  RefreshCcw,
   WalletCards,
   ChevronLeft,
   ChevronRight,
@@ -17,7 +16,6 @@ import {
 
 import {
   formatCurrencyVND,
-  getBudgetStatusStyle,
   getPercentWidth,
 } from "@/lib/finance";
 import { authFetch, getCurrentDemoPeriod } from "@/lib/moneytrack-api";
@@ -50,6 +48,8 @@ type Budget = {
 
 const { month: DEFAULT_MONTH, year: DEFAULT_YEAR } = getCurrentDemoPeriod();
 
+type PeriodTab = "THIS" | "OTHER" | "TOTAL";
+
 const FALLBACK_ICON: Record<string, string> = {
   EXPENSE: "🧾",
   BOTH: "📦",
@@ -59,6 +59,28 @@ const FALLBACK_COLOR: Record<string, string> = {
   EXPENSE: "#EF4444",
   BOTH: "#8B5CF6",
 };
+
+function formatMonthPickerValue(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+async function fetchBudgetPageData() {
+  const [budgetData, categoryData] = await Promise.all([
+    authFetch<Budget[]>("/api/budgets"),
+    authFetch<Category[]>("/api/categories"),
+  ]);
+
+  return {
+    budgetData: budgetData || [],
+    categoryData: categoryData || [],
+  };
+}
+
+function getFirstExpenseCategoryId(categories: Category[]) {
+  return categories.find(
+    (category) => category.type === "EXPENSE" || category.type === "BOTH"
+  )?.id;
+}
 
 export default function BudgetsPage() {
   const [month, setMonth] = useState(DEFAULT_MONTH);
@@ -83,11 +105,13 @@ export default function BudgetsPage() {
   const [formPeriod, setFormPeriod] = useState<"MONTHLY" | "TOTAL">("MONTHLY");
   const [formMonth, setFormMonth] = useState(DEFAULT_MONTH);
   const [formYear, setFormYear] = useState(DEFAULT_YEAR);
-  const [formMonthPicker, setFormMonthPicker] = useState(`2026-06`);
+  const [formMonthPicker, setFormMonthPicker] = useState(
+    formatMonthPickerValue(DEFAULT_YEAR, DEFAULT_MONTH)
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // Month selector inside Month period
-  const [periodTab, setPeriodTab] = useState<"THIS" | "OTHER" | "TOTAL">("THIS");
+  const [periodTab, setPeriodTab] = useState<PeriodTab>("THIS");
 
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -113,19 +137,14 @@ export default function BudgetsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [budgetData, categoryData] = await Promise.all([
-        authFetch<Budget[]>("/api/budgets"),
-        authFetch<Category[]>("/api/categories"),
-      ]);
+      const { budgetData, categoryData } = await fetchBudgetPageData();
 
-      setBudgets(budgetData || []);
-      setCategories(categoryData || []);
+      setBudgets(budgetData);
+      setCategories(categoryData);
 
-      const expenseCats = (categoryData || []).filter(
-        (c) => c.type === "EXPENSE" || c.type === "BOTH"
-      );
-      if (expenseCats.length > 0) {
-        setFormCategoryId((curr) => curr || expenseCats[0].id);
+      const firstExpenseCategoryId = getFirstExpenseCategoryId(categoryData);
+      if (firstExpenseCategoryId) {
+        setFormCategoryId((curr) => curr || firstExpenseCategoryId);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu ngân sách");
@@ -135,8 +154,36 @@ export default function BudgetsPage() {
   }
 
   useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let ignore = false;
+
+    async function loadSelectedPeriod() {
+      try {
+        const { budgetData, categoryData } = await fetchBudgetPageData();
+        if (ignore) return;
+
+        setBudgets(budgetData);
+        setCategories(categoryData);
+
+        const firstExpenseCategoryId = getFirstExpenseCategoryId(categoryData);
+        if (firstExpenseCategoryId) {
+          setFormCategoryId((curr) => curr || firstExpenseCategoryId);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Không thể tải dữ liệu ngân sách");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadSelectedPeriod();
+
+    return () => {
+      ignore = true;
+    };
   }, [month, year]);
 
   // Notice auto-dismiss
@@ -149,6 +196,8 @@ export default function BudgetsPage() {
 
   // Handle month navigator clicks
   const handlePrevMonth = () => {
+    setLoading(true);
+    setError(null);
     setMonth((m) => {
       if (m === 1) {
         setYear((y) => y - 1);
@@ -159,6 +208,8 @@ export default function BudgetsPage() {
   };
 
   const handleNextMonth = () => {
+    setLoading(true);
+    setError(null);
     setMonth((m) => {
       if (m === 12) {
         setYear((y) => y + 1);
@@ -198,25 +249,31 @@ export default function BudgetsPage() {
     return { totalLimit, totalSpent, warningCount };
   }, [visibleBudgets]);
 
-  // Manage period and picker sync
-  useEffect(() => {
-    if (periodTab === "THIS") {
+  const applyPeriodTab = (tab: PeriodTab, pickerValue = formMonthPicker) => {
+    setPeriodTab(tab);
+
+    if (tab === "THIS") {
       setFormPeriod("MONTHLY");
       setFormMonth(month);
       setFormYear(year);
-    } else if (periodTab === "TOTAL") {
+      setFormMonthPicker(formatMonthPickerValue(year, month));
+      return;
+    }
+
+    if (tab === "TOTAL") {
       setFormPeriod("TOTAL");
       setFormMonth(month);
       setFormYear(year);
-    } else {
-      setFormPeriod("MONTHLY");
-      const [yStr, mStr] = formMonthPicker.split("-");
-      if (yStr && mStr) {
-        setFormMonth(Number(mStr));
-        setFormYear(Number(yStr));
-      }
+      return;
     }
-  }, [periodTab, formMonthPicker, month, year]);
+
+    setFormPeriod("MONTHLY");
+    const [yStr, mStr] = pickerValue.split("-");
+    if (yStr && mStr) {
+      setFormMonth(Number(mStr));
+      setFormYear(Number(yStr));
+    }
+  };
 
   // Sync date picker back
   const handleMonthPickerChange = (val: string) => {
@@ -274,7 +331,7 @@ export default function BudgetsPage() {
   // Open Add Budget Form Modal
   const handleOpenAdd = () => {
     setEditBudget(null);
-    setPeriodTab("THIS");
+    applyPeriodTab("THIS");
     setFormLimitAmount("1000000");
     const expenseCats = categories.filter(c => c.type === "EXPENSE" || c.type === "BOTH");
     if (expenseCats.length > 0) {
@@ -292,12 +349,13 @@ export default function BudgetsPage() {
     if (budget.period === "TOTAL") {
       setPeriodTab("TOTAL");
       setFormPeriod("TOTAL");
+      setFormMonth(month);
     } else {
       if (Number(budget.month) === Number(month) && Number(budget.year) === Number(year)) {
         setPeriodTab("THIS");
       } else {
         setPeriodTab("OTHER");
-        setFormMonthPicker(`${budget.year}-${String(budget.month).padStart(2, "0")}`);
+        setFormMonthPicker(formatMonthPickerValue(budget.year, budget.month || month));
       }
       setFormPeriod("MONTHLY");
       setFormMonth(budget.month || month);
@@ -812,7 +870,7 @@ export default function BudgetsPage() {
                       <button
                         key={tab.id}
                         type="button"
-                        onClick={() => setPeriodTab(tab.id)}
+                        onClick={() => applyPeriodTab(tab.id)}
                         className={`rounded-xl py-2 text-xs font-bold transition-all border ${
                           periodTab === tab.id
                             ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"

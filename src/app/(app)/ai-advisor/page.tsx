@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
   RefreshCcw,
   BrainCircuit,
   Sparkles,
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   X,
   MessageSquare,
   AlertCircle,
-  PiggyBank,
   ArrowRight,
   Bot,
   CheckCircle2,
@@ -174,6 +172,23 @@ function normalizeAdviceTexts(rawValue: unknown): string[] {
     .filter(Boolean);
 }
 
+async function fetchAdvisorData(month: number, year: number) {
+  const [adviceResult, budgetList, historyData] = await Promise.all([
+    authFetch<AdviceResponse>("/api/ai/advice", {
+      method: "POST",
+      body: JSON.stringify({ month, year }),
+    }),
+    authFetch<Budget[]>("/api/budgets"),
+    authFetch<AiAdviceLog[]>("/api/ai/history").catch(() => []),
+  ]);
+
+  return {
+    adviceResult,
+    budgetList: budgetList || [],
+    historyData: historyData || [],
+  };
+}
+
 export default function AiAdvisorPage() {
   const [month, setMonth] = useState(DEFAULT_MONTH);
   const [year, setYear] = useState(DEFAULT_YEAR);
@@ -190,24 +205,15 @@ export default function AiAdvisorPage() {
   async function loadAllData(isRefresh = false) {
     if (isRefresh) {
       setUpdating(true);
-    } else {
-      setLoading(true);
+      setError(null);
     }
-    setError(null);
 
     try {
-      const [adviceResult, budgetList, historyData] = await Promise.all([
-        authFetch<AdviceResponse>("/api/ai/advice", {
-          method: "POST",
-          body: JSON.stringify({ month, year }),
-        }),
-        authFetch<Budget[]>("/api/budgets"),
-        authFetch<AiAdviceLog[]>("/api/ai/history").catch(() => []),
-      ]);
+      const { adviceResult, budgetList, historyData } = await fetchAdvisorData(month, year);
 
       setAdvice(adviceResult);
-      setBudgets(budgetList || []);
-      setHistoryLogs(historyData || []);
+      setBudgets(budgetList);
+      setHistoryLogs(historyData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể kết nối dịch vụ AI");
       console.error(err);
@@ -218,8 +224,33 @@ export default function AiAdvisorPage() {
   }
 
   useEffect(() => {
-    loadAllData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let ignore = false;
+
+    async function loadSelectedPeriod() {
+      try {
+        const { adviceResult, budgetList, historyData } = await fetchAdvisorData(month, year);
+        if (ignore) return;
+
+        setAdvice(adviceResult);
+        setBudgets(budgetList);
+        setHistoryLogs(historyData);
+      } catch (err) {
+        if (ignore) return;
+        setError(err instanceof Error ? err.message : "Không thể kết nối dịch vụ AI");
+        console.error(err);
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+          setUpdating(false);
+        }
+      }
+    }
+
+    void loadSelectedPeriod();
+
+    return () => {
+      ignore = true;
+    };
   }, [month, year]);
 
   // ─── Derived Data ─────────────────────────────────────────────────────────
@@ -402,6 +433,8 @@ export default function AiAdvisorPage() {
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handlePrevMonth = () => {
+    setLoading(true);
+    setError(null);
     setMonth((m) => {
       if (m === 1) { setYear((y) => y - 1); return 12; }
       return m - 1;
@@ -409,6 +442,8 @@ export default function AiAdvisorPage() {
   };
 
   const handleNextMonth = () => {
+    setLoading(true);
+    setError(null);
     setMonth((m) => {
       if (m === 12) { setYear((y) => y + 1); return 1; }
       return m + 1;
@@ -518,12 +553,12 @@ export default function AiAdvisorPage() {
             <AlertCircle className="h-4.5 w-4.5 text-amber-500 shrink-0" />
             {unclassifiedCount} giao dịch chưa phân loại — báo cáo có thể chưa chính xác
           </span>
-          <a
+          <Link
             href="/transactions?category=UNCLASSIFIED"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-800 transition-colors uppercase tracking-wider shrink-0"
           >
             Phân loại ngay <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
         </section>
       )}
 
@@ -752,12 +787,12 @@ export default function AiAdvisorPage() {
               <p className="text-xs text-slate-500 leading-relaxed font-medium">
                 Còn giao dịch chưa phân loại sẽ khiến báo cáo và phân tích AI chưa chính xác. Phân loại để AI đưa ra gợi ý tốt hơn.
               </p>
-              <a
+              <Link
                 href="/transactions?category=UNCLASSIFIED"
                 className="w-full h-10 inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold shadow-sm shadow-amber-500/10 transition-all active:scale-95 text-center cursor-pointer"
               >
                 Đi tới phân loại giao dịch
-              </a>
+              </Link>
             </div>
           )}
 
