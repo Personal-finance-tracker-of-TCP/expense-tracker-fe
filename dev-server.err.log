@@ -1,8 +1,0 @@
-[browser] Login failed: {
-  endpoint: [32m'http://localhost:5000/auth/login'[39m,
-  error: [32m'[object Error]'[39m,
-  response: { message: [32m'Email hoặc mật khẩu không đúng'[39m, success: [33mfalse[39m },
-  status: [33m401[39m
-} 
-    at onSubmit (file://D:/Documents/PTIT DOC/WD/expense-tracker/expense-tracker-fe/.next/dev/static/chunks/src_0vg.5pn._.js:209:21)
-    at async (file://D:/Documents/PTIT DOC/WD/expense-tracker/expense-tracker-fe/.next/dev/static/chunks/node_modules_react-hook-form_dist_index_esm_mjs_06an-fx._.js:2323:21) (file://D:/Documents/PTIT DOC/WD/expense-tracker/expense-tracker-fe/.next/dev/static/chunks/src_0vg.5pn._.js:209:21)

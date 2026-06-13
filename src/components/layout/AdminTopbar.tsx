@@ -8,7 +8,6 @@ import {
   KeyRound,
   LogOut,
   Menu,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -23,6 +22,7 @@ import {
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import api from "@/lib/api";
 import { getInitials } from "@/lib/auth";
+import { authFetch } from "@/lib/moneytrack-api";
 import { useAuthStore } from "@/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
 
@@ -32,10 +32,18 @@ const pageTitles: Record<string, string> = {
   "/admin/bankhub-sandbox": "BankHub Sandbox",
   "/admin/sepay-logs": "SePay Logs",
   "/admin/linked-users": "Người dùng liên kết",
-  "/admin/notifications": "Các thông báo",
+  "/admin/notifications": "Thông báo feedback",
   "/admin/change-password": "Đổi mật khẩu",
   "/admin/feedback": "Phản hồi người dùng",
 };
+
+type AdminNotification = {
+  id: string;
+  type: string;
+  isRead: boolean;
+};
+
+const ADMIN_NOTIFICATION_POLL_MS = 30_000;
 
 export function AdminTopbar() {
   const router = useRouter();
@@ -45,6 +53,7 @@ export function AdminTopbar() {
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const user = useAuthStore((state) => state.user);
   const [isMounted, setIsMounted] = useState(false);
+  const [unreadFeedbackCount, setUnreadFeedbackCount] = useState(0);
   const displayUser = isMounted ? user : null;
 
   useEffect(() => {
@@ -56,6 +65,44 @@ export function AdminTopbar() {
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadUnreadFeedbackCount = async () => {
+      try {
+        const notifications = await authFetch<AdminNotification[]>(
+          "/api/admin/notifications",
+          { admin: true }
+        );
+
+        if (!active) return;
+
+        setUnreadFeedbackCount(
+          (notifications || []).filter(
+            (item) => item.type === "FEEDBACK" && !item.isRead
+          ).length
+        );
+      } catch {
+        if (active) {
+          setUnreadFeedbackCount(0);
+        }
+      }
+    };
+
+    void loadUnreadFeedbackCount();
+    const intervalId = window.setInterval(
+      loadUnreadFeedbackCount,
+      ADMIN_NOTIFICATION_POLL_MS
+    );
+    window.addEventListener("focus", loadUnreadFeedbackCount);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", loadUnreadFeedbackCount);
     };
   }, []);
 
@@ -88,17 +135,24 @@ export function AdminTopbar() {
         </div>
       </div>
 
-      
-
       <div className="flex items-center gap-2 sm:gap-3">
         <ThemeToggle />
         <button
           type="button"
-          className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-teal-100 bg-white text-slate-700 shadow-sm transition-colors hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:inline-flex"
-          aria-label="Các thông báo"
+          className="relative hidden h-10 w-10 items-center justify-center rounded-2xl border border-teal-100 bg-white text-slate-700 shadow-sm transition-colors hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:inline-flex"
+          aria-label={
+            unreadFeedbackCount > 0
+              ? `${unreadFeedbackCount} feedback chưa đọc`
+              : "Thông báo feedback"
+          }
           onClick={() => router.push("/admin/notifications")}
         >
           <Bell className="h-4 w-4" />
+          {unreadFeedbackCount > 0 ? (
+            <span className="absolute -right-1.5 -top-1.5 flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[0.65rem] font-black leading-none text-white shadow-sm dark:border-slate-950">
+              {unreadFeedbackCount > 9 ? "9+" : unreadFeedbackCount}
+            </span>
+          ) : null}
         </button>
 
         <DropdownMenu>
