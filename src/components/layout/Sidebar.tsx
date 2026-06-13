@@ -7,12 +7,12 @@ import {
   LayoutDashboard,
   ArrowLeftRight,
   Tag,
-  PiggyBank,
   BarChart2,
   Sparkles,
   MessageSquareText,
 	UserRound,
 	Wallet,
+	PiggyBank,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -29,8 +29,8 @@ const navigationItems = [
 	{ href: "/budget", label: "Ngân sách", icon: PiggyBank, tone: "bg-emerald-400" },
 	{ href: "/reports", label: "Báo cáo", icon: BarChart2, tone: "bg-indigo-400" },
 	{ href: "/ai-advisor", label: "Tư vấn AI", icon: Sparkles, tone: "bg-fuchsia-400" },
-	{ href: "/profile", label: "Hồ sơ", icon: UserRound, tone: "bg-rose-400" },
 	{ href: "/feedback", label: "Phản hồi", icon: MessageSquareText, tone: "bg-violet-400" },
+	{ href: "/profile", label: "Hồ sơ", icon: UserRound, tone: "bg-rose-400" },
 ];
 
 export function Sidebar({ className }: SidebarProps) {

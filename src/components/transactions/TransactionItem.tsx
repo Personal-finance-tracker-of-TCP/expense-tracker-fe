@@ -235,7 +235,8 @@ export function TransactionItem({
                 </span>
               </button>
 
-              <button
+              {isSePay ? (
+                <button
                 onClick={(event) => {
                   event.stopPropagation();
                   onExclude(transaction);
@@ -245,7 +246,8 @@ export function TransactionItem({
               >
                 <Ban className="h-3.5 w-3.5 shrink-0" />
                 <span className="whitespace-normal text-center">Bỏ qua</span>
-              </button>
+                </button>
+              ) : null}
             </>
           ) : (
             <span

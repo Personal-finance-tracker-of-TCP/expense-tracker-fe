@@ -53,7 +53,7 @@ export function FloatingChatbot() {
     {
       id: "welcome",
       sender: "bot",
-      text: "Xin chào! Tôi là cố vấn AI tài chính của bạn. Bạn muốn xem dòng tiền, ngân sách hay giao dịch nào trước?",
+      text: "Xin chào! Tôi là trợ lý tài chính AI của FinTrack. Tôi có thể giúp gì cho bạn hôm nay?",
       timestamp: new Date(),
     },
   ]);

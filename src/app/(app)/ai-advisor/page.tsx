@@ -578,7 +578,7 @@ export default function AiAdvisorPage() {
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white"></span>
             </span>
 
-            {updating ? "Đang cập nhật..." : "Phân tích với AI"}
+            {updating ? "Đang xử lý..." : "Phân tích với AI"}
           </button>
         </div>
       </section>
@@ -890,38 +890,7 @@ export default function AiAdvisorPage() {
         </div>
       </section>
 
-      {/* ── Muốn hỏi sâu hơn ── */}
-      <section className="px-2 mt-4">
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-inner">
-              <MessageSquare className="h-4.5 w-4.5" />
-            </span>
-            <h2 className="text-sm font-extrabold text-slate-800">Muốn hỏi sâu hơn?</h2>
-          </div>
-          
-          <p className="text-xs text-slate-500 font-semibold mb-4 leading-relaxed">
-            Bạn có thể hỏi thêm AI bằng chatbot nổi ở góc màn hình. Hãy gửi câu hỏi nhanh từ đây.
-          </p>
-
-          <form onSubmit={handleAskSubmit} className="flex gap-3 max-w-2xl">
-            <input
-              type="text"
-              value={askInput}
-              onChange={(e) => setAskInput(e.target.value)}
-              placeholder="Ví dụ: Tôi nên cắt giảm khoản nào trước?"
-              className="flex-1 h-11 px-4 rounded-2xl border border-slate-200/80 text-xs font-semibold outline-none ring-slate-100 focus:border-slate-300 focus:ring-4 transition-all duration-200"
-            />
-            <button
-              type="submit"
-              className="h-11 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold shadow-md shadow-emerald-500/10 px-6 transition-all active:scale-95 shrink-0 cursor-pointer"
-            >
-              <Sparkles className="h-4 w-4" />
-              Mở chatbot AI
-            </button>
-          </form>
-        </div>
-      </section>
+      
 
       {/* ── AI Analysis History ── */}
       <section className="px-2 mt-4">

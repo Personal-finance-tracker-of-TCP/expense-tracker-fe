@@ -167,7 +167,7 @@ export default function AdminPlatformStatisticsPage() {
             </span>
             <div>
               <p className="text-sm font-semibold uppercase text-teal-700 dark:text-teal-300">
-                MoneyTrack Admin
+                FinTrack Admin
               </p>
               <h1 className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
                 Tổng quan hệ thống

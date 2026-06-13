@@ -13,6 +13,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type ApiEnvelope, type AuthPayload, normalizeUser } from "@/lib/auth";
+
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -44,6 +45,8 @@ function GoogleIcon() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const requestedReturnUrl =
+    searchParams.get("returnUrl") || searchParams.get("from");
   const registered = searchParams.get("registered") === "true";
   const oauthError = searchParams.get("oauth") === "failed";
   const sessionExpired = searchParams.get("expired") === "1";
@@ -128,8 +131,13 @@ function LoginForm() {
 
     try {
       setIsGoogleLoading(true);
-      const callbackUrl = `${window.location.origin}/oauth-callback`;
-      await signIn("google", { callbackUrl });
+      const callbackUrl = new URL("/oauth-callback", window.location.origin);
+
+      if (requestedReturnUrl) {
+        callbackUrl.searchParams.set("returnUrl", requestedReturnUrl);
+      }
+
+      await signIn("google", { callbackUrl: callbackUrl.toString() });
     } catch {
       router.replace("/login?oauth=failed");
       setIsGoogleLoading(false);
@@ -163,7 +171,7 @@ function LoginForm() {
 
       {sessionExpired ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-700 shadow-sm">
-          Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để mở hồ sơ.
+          Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.
         </div>
       ) : null}
 

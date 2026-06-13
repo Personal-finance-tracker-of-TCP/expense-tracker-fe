@@ -223,13 +223,17 @@ export default function DashboardPage() {
       const result = await updateUserBalance(nextBalance);
       const updatedUser = result.user;
 
-      setUser((current) =>
-        updatedUser
-          ? { ...current, ...updatedUser, balance: result.balance }
-          : current
-            ? { ...current, balance: result.balance }
-            : current
-      );
+      setUser((current) => {
+        if (updatedUser) {
+          return {
+            ...(current ?? updatedUser),
+            ...updatedUser,
+            balance: result.balance,
+          };
+        }
+
+        return current ? { ...current, balance: result.balance } : current;
+      });
       updateStoredUser({ balance: result.balance });
       setBalanceMessage("Da cap nhat so du kha dung.");
       setBalanceModalOpen(false);
@@ -502,7 +506,7 @@ export default function DashboardPage() {
           return (
             <div
               key={item.label}
-              className="animate-rise rounded-[1.75rem] border border-white/80 bg-white/86 p-5 shadow-lg shadow-teal-950/[0.06] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+              className="animate-rise rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-lg shadow-teal-950/[0.06] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
               style={{ animationDelay: `${index * 70}ms` }}
             >
               <div className="flex items-start justify-between gap-3">
@@ -551,7 +555,7 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="rounded-[1.75rem] border border-white/80 bg-white/88 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
+        <section className="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
           <div>
             <h2 className="text-lg font-black text-slate-950 dark:text-white">
               Thu và chi theo thời gian
@@ -600,7 +604,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        <section className="rounded-[1.75rem] border border-white/80 bg-white/88 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
+        <section className="rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
           <div>
             <h2 className="text-lg font-black text-slate-950 dark:text-white">
               Cơ cấu chi tiêu
@@ -643,7 +647,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="h-fit rounded-[1.75rem] border border-white/80 bg-white/88 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur">
+        <section className="h-fit rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-black text-slate-950">
@@ -693,7 +697,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="h-fit rounded-[1.75rem] border border-white/80 bg-white/88 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur">
+        <section className="h-fit rounded-[1.75rem] border border-white/80 bg-white/90 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur">
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-black text-slate-950">

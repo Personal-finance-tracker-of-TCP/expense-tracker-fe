@@ -2,15 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   BadgeDollarSign,
   CircleDot,
+  Loader2,
   Palette,
+
   Pencil,
   Tag,
   Tags,
   Trash2,
   Utensils,
+  Plus,
+  RefreshCw,
+
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import type { Category } from "@/components/categories/CategoryCard";
 import {

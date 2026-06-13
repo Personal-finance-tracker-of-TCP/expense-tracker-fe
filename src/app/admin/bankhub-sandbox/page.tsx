@@ -1,14 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  CheckCircle2,
+  Clock3,
+  Code2,
   Loader2,
   RefreshCw,
   Send,
   ShieldCheck,
+  UserRoundCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,20 +31,6 @@ type LinkedUser = {
   role: string;
 };
 
-type TransferType = "credit" | "debit";
-type BankHubMockResponse = Record<string, unknown>;
-type WebhookWaitState = "idle" | "waiting" | "received" | "timeout";
-
-type SepayLog = {
-  id: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-type SepayLogsResponse = {
-  logs: SepayLog[];
-};
-
 type BankHubAccount = {
   bankhubAccountXid?: string | null;
   bankAccountNumber?: string | null;
@@ -56,15 +46,36 @@ type BankHubLinkedAccountsResponse = {
   accounts?: BankHubAccount[];
 };
 
-const CALLBACK_SUCCESS_TOAST =
-  "SePay đã tạo mock transaction. Đang chờ callback về Notify URL.";
-const WEBHOOK_TIMEOUT_MESSAGE =
-  "Chưa nhận được webhook từ SePay. Kiểm tra Notify URL/IPN config trên SePay.";
-const WEBHOOK_RECEIVED_MESSAGE =
-  "Đã nhận webhook mới từ SePay. Kiểm tra SePay Logs hoặc danh sách giao dịch.";
+type TransferType = "credit" | "debit";
+type WebhookState = "idle" | "waiting" | "received" | "timeout";
+type BankHubResult = Record<string, unknown>;
 
-function formatLinkedAt(value?: string | null) {
+type SepayLog = {
+  id: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type SepayLogsResponse = {
+  logs?: SepayLog[];
+};
+
+const WEBHOOK_MESSAGES: Record<WebhookState, string> = {
+  idle: "Chưa gửi giao dịch trong phiên hiện tại.",
+  waiting: "Đã gửi giao dịch sandbox. Đang chờ webhook từ SePay...",
+  received: "Đã nhận webhook mới từ SePay.",
+  timeout: "Chưa nhận được webhook. Vui lòng kiểm tra Notify URL hoặc SePay Logs.",
+};
+
+function isLinked(user: LinkedUser) {
+  return Boolean(user.bankhubAccountXid?.trim());
+}
+
+function formatDateTime(value?: string | null) {
   if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
 
   return new Intl.DateTimeFormat("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -74,7 +85,26 @@ function formatLinkedAt(value?: string | null) {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).format(new Date(value));
+  }).format(date);
+}
+
+function formatAmountInput(value: string) {
+  const numericValue = value.replace(/\D/g, "");
+  if (!numericValue) return "";
+
+  return new Intl.NumberFormat("vi-VN").format(Number(numericValue));
+}
+
+function parseAmountInput(value: string) {
+  return Number(value.replace(/\D/g, ""));
+}
+
+function stringifyResult(result: BankHubResult) {
+  try {
+    return JSON.stringify(result, null, 2);
+  } catch {
+    return String(result);
+  }
 }
 
 function formatStatusValue(value: unknown) {
@@ -83,56 +113,57 @@ function formatStatusValue(value: unknown) {
   return String(value);
 }
 
-function stringifyResult(result: BankHubMockResponse) {
-  try {
-    return JSON.stringify(result, null, 2);
-  } catch {
-    return String(result);
-  }
-}
-
 export default function BankHubSandboxPage() {
   const [users, setUsers] = useState<LinkedUser[]>([]);
   const [bankhubAccounts, setBankhubAccounts] = useState<BankHubAccount[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [transferType, setTransferType] = useState<TransferType>("credit");
-  const [amount, setAmount] = useState("200000");
+  const [amount, setAmount] = useState(formatAmountInput("1000000"));
   const [content, setContent] = useState("Giao dịch sandbox MoneyTrack");
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<BankHubMockResponse | null>(null);
-  const [webhookWaitState, setWebhookWaitState] =
-    useState<WebhookWaitState>("idle");
+  const [result, setResult] = useState<BankHubResult | null>(null);
+  const [webhookState, setWebhookState] = useState<WebhookState>("idle");
   const [webhookWaitStartedAt, setWebhookWaitStartedAt] = useState<number | null>(
     null
   );
 
+  const linkedUsers = useMemo(() => users.filter(isLinked), [users]);
+
   const selectedUser = useMemo(
-    () => users.find((user) => user.id === selectedUserId) || null,
-    [selectedUserId, users]
+    () => linkedUsers.find((user) => user.id === selectedUserId) || null,
+    [linkedUsers, selectedUserId]
   );
 
-  const linkedUsers = useMemo(
-    () => users.filter((user) => Boolean(user.bankhubAccountXid?.trim())),
-    [users]
-  );
+  const selectedBankHubAccount = useMemo(() => {
+    if (!selectedUser?.bankhubAccountXid) return null;
 
-  const reloadUsers = async () => {
-    setLoadingUsers(true);
+    return (
+      bankhubAccounts.find(
+        (account) =>
+          account.bankhubAccountXid === selectedUser.bankhubAccountXid
+      ) || null
+    );
+  }, [bankhubAccounts, selectedUser]);
+
+  const loadSandboxData = useCallback(async () => {
+    setLoading(true);
     setError(null);
 
     try {
-      const data = await authFetch<LinkedUser[]>("/api/admin/linked-users", {
-        admin: true,
-      });
-      const nextUsers = data || [];
-      const nextLinkedUsers = nextUsers.filter((user) =>
-        Boolean(user.bankhubAccountXid?.trim())
-      );
+      const [userData, accountData] = await Promise.all([
+        authFetch<LinkedUser[]>("/api/admin/linked-users", { admin: true }),
+        authFetch<BankHubLinkedAccountsResponse>("/api/bankhub/linked-accounts", {
+          admin: true,
+        }),
+      ]);
+
+      const nextUsers = userData || [];
+      const nextLinkedUsers = nextUsers.filter(isLinked);
 
       setUsers(nextUsers);
+      setBankhubAccounts(accountData.accounts || []);
       setSelectedUserId((current) =>
         nextLinkedUsers.some((user) => user.id === current)
           ? current
@@ -140,54 +171,34 @@ export default function BankHubSandboxPage() {
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Không thể tải danh sách user"
-      );
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
-
-  const reloadBankhubAccounts = async () => {
-    setLoadingAccounts(true);
-
-    try {
-      const data = await authFetch<BankHubLinkedAccountsResponse>(
-        "/api/bankhub/linked-accounts",
-        { admin: true }
-      );
-
-      setBankhubAccounts(data.accounts || []);
-    } catch (err) {
-      toast.error(
         err instanceof Error
           ? err.message
-          : "Không thể lấy tài khoản đã liên kết từ SePay"
+          : "Không thể tải danh sách người dùng đã liên kết"
       );
       setBankhubAccounts([]);
     } finally {
-      setLoadingAccounts(false);
+      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      reloadUsers();
-      reloadBankhubAccounts();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (!webhookWaitStartedAt || webhookWaitState !== "waiting") return;
+    const timer = window.setTimeout(() => {
+      void loadSandboxData();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [loadSandboxData]);
+
+  useEffect(() => {
+    if (!webhookWaitStartedAt || webhookState !== "waiting") return;
 
     let stopped = false;
 
     const markReceived = () => {
       if (stopped) return;
-      setWebhookWaitState("received");
+      setWebhookState("received");
       setWebhookWaitStartedAt(null);
-      toast.success(WEBHOOK_RECEIVED_MESSAGE);
+      toast.success("Đã nhận webhook mới từ SePay.");
     };
 
     const checkWebhookLogs = async () => {
@@ -203,69 +214,69 @@ export default function BankHubSandboxPage() {
 
         if (hasNewLog) markReceived();
       } catch {
-        // Polling stays quiet; the timeout message tells admin what to check.
+        // Keep polling quiet; the timeout state tells admin where to inspect.
       }
     };
 
     const pollTimer = window.setInterval(checkWebhookLogs, 5000);
     const timeoutTimer = window.setTimeout(() => {
       if (stopped) return;
-      setWebhookWaitState("timeout");
+      setWebhookState("timeout");
       setWebhookWaitStartedAt(null);
-      toast.warning(WEBHOOK_TIMEOUT_MESSAGE);
+      toast.warning(WEBHOOK_MESSAGES.timeout);
     }, 30000);
 
-    checkWebhookLogs();
+    void checkWebhookLogs();
 
     return () => {
       stopped = true;
       window.clearInterval(pollTimer);
       window.clearTimeout(timeoutTimer);
     };
-  }, [webhookWaitStartedAt, webhookWaitState]);
+  }, [webhookState, webhookWaitStartedAt]);
 
-  const validateForm = () => {
+  function validateForm() {
     if (!selectedUser) {
-      setError("Vui lòng chọn user đã liên kết BankHub Sandbox");
+      setError("Vui lòng chọn người dùng đã liên kết BankHub.");
       return null;
     }
 
     if (!selectedUser.bankhubAccountXid) {
-      setError(
-        "User chưa liên kết BankHub Sandbox. Hãy yêu cầu user liên kết ở trang Hồ sơ."
-      );
+      setError("Người dùng này chưa có BankHub XID.");
       return null;
     }
 
-    const parsedAmount = Number(amount);
+    const parsedAmount = parseAmountInput(amount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError("Số tiền phải là số lớn hơn 0");
+      setError("Số tiền phải là số lớn hơn 0.");
       return null;
     }
 
     const trimmedContent = content.trim();
     if (!trimmedContent) {
-      setError("Nội dung giao dịch là bắt buộc");
+      setError("Nội dung giao dịch là bắt buộc.");
       return null;
     }
 
     return { parsedAmount, trimmedContent };
-  };
+  }
 
-  const submitSandboxTransaction = async (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     const validated = validateForm();
     if (!validated || !selectedUser) return;
 
     setSubmitting(true);
     setError(null);
     setResult(null);
-    setWebhookWaitState("idle");
+    setWebhookState("idle");
     setWebhookWaitStartedAt(null);
+
     const requestStartedAt = Date.now() - 2000;
 
     try {
-      const response = await authFetch<BankHubMockResponse>(
+      const response = await authFetch<BankHubResult>(
         "/api/admin/bankhub-sandbox/transactions",
         {
           method: "POST",
@@ -280,363 +291,316 @@ export default function BankHubSandboxPage() {
       );
 
       setResult(response);
-      setWebhookWaitState("waiting");
+      setWebhookState("waiting");
       setWebhookWaitStartedAt(requestStartedAt);
-      toast.success(CALLBACK_SUCCESS_TOAST);
+      toast.success("Đã tạo giao dịch sandbox. Đang chờ webhook từ SePay.");
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : "Không thể tạo giao dịch sandbox trên SePay"
+          : "Không thể tạo giao dịch sandbox. Vui lòng thử lại."
       );
     } finally {
       setSubmitting(false);
     }
-  };
+  }
+
+  const parsedAmount = parseAmountInput(amount);
+  const canSubmit = Boolean(selectedUser?.bankhubAccountXid) && !submitting;
+  const statusTone =
+    webhookState === "received"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : webhookState === "timeout"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : webhookState === "waiting"
+          ? "border-teal-200 bg-teal-50 text-teal-800"
+          : "border-slate-200 bg-slate-50 text-slate-600";
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 lg:col-span-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="mx-auto max-w-7xl space-y-5">
+      <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-4">
             <span className="rounded-2xl bg-teal-50 p-3 text-teal-700 ring-1 ring-teal-100 dark:bg-teal-950/60 dark:text-teal-200 dark:ring-teal-900">
               <ShieldCheck className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-sm font-semibold uppercase text-teal-700 dark:text-teal-300">
-                Admin BankHub Sandbox
-              </p>
-              <h1 className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
-                Tạo giao dịch sandbox
+              <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+                BankHub Sandbox
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Gửi giao dịch thử qua backend, sau đó chờ webhook SePay ghi log
-                và tạo transaction thật trong MoneyTrack.
+                Mô phỏng giao dịch ngân hàng và kiểm tra webhook SePay
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              reloadUsers();
-              reloadBankhubAccounts();
-            }}
-            disabled={loadingUsers || loadingAccounts}
-            className="inline-flex h-10 items-center gap-2 rounded-2xl border border-teal-100 bg-white px-4 text-sm font-bold text-teal-800 shadow-sm transition hover:bg-teal-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-teal-200"
+            onClick={() => void loadSandboxData()}
+            disabled={loading}
+            className="inline-flex h-10 w-fit items-center gap-2 rounded-2xl border border-teal-100 bg-white px-4 text-sm font-bold text-teal-800 shadow-sm transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-teal-200"
           >
-            <RefreshCw
-              className={`h-4 w-4 ${
-                loadingUsers || loadingAccounts ? "animate-spin" : ""
-              }`}
-            />
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
             Làm mới
           </button>
         </div>
       </section>
 
-      <form
-        onSubmit={submitSandboxTransaction}
-        className="rounded-[2rem] border border-white/80 bg-white/90 p-6 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
-      >
-        <div className="space-y-5">
-          <div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-              User đã liên kết sandbox
-            </p>
-            <div className="mt-2 max-h-56 space-y-2 overflow-auto rounded-2xl border border-slate-100 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950">
-              {loadingUsers ? (
-                <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-500 dark:bg-slate-900">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang tải user
-                </div>
-              ) : linkedUsers.length === 0 ? (
-                <div className="rounded-xl bg-white px-3 py-3 text-sm font-semibold text-slate-500 dark:bg-slate-900">
-                  Chưa có user liên kết BankHub XID.
-                </div>
-              ) : (
-                linkedUsers.map((user) => {
-                  const active = selectedUserId === user.id;
-
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      onClick={() => setSelectedUserId(user.id)}
-                      className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-                        active
-                          ? "border-teal-200 bg-white text-slate-950 shadow-sm dark:border-teal-900 dark:bg-slate-900 dark:text-white"
-                          : "border-transparent bg-transparent text-slate-600 hover:bg-white dark:text-slate-300 dark:hover:bg-slate-900"
-                      }`}
-                    >
-                      <span className="block text-sm font-bold">{user.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-slate-500">
-                        {user.email}
-                      </span>
-                      <span className="mt-1 block text-xs font-semibold text-teal-700 dark:text-teal-300">
-                        {user.bankName || "BankHub"} -{" "}
-                        {user.bankAccountNumber || "-"}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90 sm:p-6"
+        >
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
+            <span className="rounded-2xl bg-emerald-50 p-2.5 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900">
+              <Send className="h-5 w-5" />
+            </span>
+            <div>
+              <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                Tạo giao dịch mô phỏng
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Chọn user đã liên kết, nhập số tiền và gửi qua backend.
+              </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-            <p className="text-xs font-bold uppercase text-slate-400">
-              Tài khoản BankHub Sandbox
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-5">
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
+              Người dùng đã liên kết
+              <select
+                value={selectedUserId}
+                onChange={(event) => setSelectedUserId(event.target.value)}
+                disabled={loading || linkedUsers.length === 0}
+                className="mt-2 h-12 w-full rounded-2xl border border-teal-100 bg-teal-50/45 px-4 text-sm font-bold text-slate-900 outline-none ring-teal-100 transition focus:border-teal-400 focus:bg-white focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+              >
+                {linkedUsers.length === 0 ? (
+                  <option value="">Chưa có user liên kết BankHub</option>
+                ) : null}
+                {linkedUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} - {user.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950 md:grid-cols-2">
               {[
+                ["Tên user", selectedUser?.name || "-"],
+                ["Email", selectedUser?.email || "-"],
                 ["Ngân hàng", selectedUser?.bankName || "-"],
-                ["Chủ tài khoản", selectedUser?.bankAccountName || "-"],
                 ["Số tài khoản", selectedUser?.bankAccountNumber || "-"],
                 ["BankHub XID", selectedUser?.bankhubAccountXid || "-"],
-                ["Liên kết lúc", formatLinkedAt(selectedUser?.sepayLinkedAt)],
               ].map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-xs text-slate-500">{label}</p>
-                  <p className="mt-1 break-all text-sm font-bold text-slate-800 dark:text-slate-200">
+                <div key={label} className="min-w-0">
+                  <p className="text-xs font-bold uppercase text-slate-400">
+                    {label}
+                  </p>
+                  <p className="mt-1 break-all text-sm font-black text-slate-900 dark:text-white">
                     {value}
                   </p>
                 </div>
               ))}
             </div>
-          </div>
 
-          <div>
-            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
-              Loại giao dịch
-            </p>
-            <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-950">
-              {[
-                { value: "credit" as const, label: "Tiền vào", icon: ArrowDownLeft },
-                { value: "debit" as const, label: "Tiền ra", icon: ArrowUpRight },
-              ].map((item) => {
-                const Icon = item.icon;
-                const active = transferType === item.value;
+            <div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                Loại giao dịch
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 dark:bg-slate-950">
+                {[
+                  { value: "credit" as const, label: "Tiền vào", icon: ArrowDownLeft },
+                  { value: "debit" as const, label: "Tiền ra", icon: ArrowUpRight },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = transferType === item.value;
 
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setTransferType(item.value)}
-                    className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors ${
-                      active
-                        ? "bg-white text-teal-700 shadow-sm dark:bg-slate-800 dark:text-teal-200"
-                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setTransferType(item.value)}
+                      className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-bold transition-colors ${
+                        active
+                          ? "bg-white text-teal-700 shadow-sm dark:bg-slate-800 dark:text-teal-200"
+                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
-            Số tiền
-            <input
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              className="mt-2 h-11 w-full rounded-2xl border border-teal-100 bg-teal-50/45 px-3 text-sm font-semibold tabular-nums text-slate-950 outline-none ring-teal-100 transition focus:border-teal-400 focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              required
-            />
-          </label>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
+              Số tiền
+              <div className="mt-2 flex h-12 items-center rounded-2xl border border-teal-100 bg-teal-50/45 px-4 ring-teal-100 transition focus-within:border-teal-400 focus-within:bg-white focus-within:ring-4 dark:border-slate-700 dark:bg-slate-950">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={amount}
+                  onChange={(event) =>
+                    setAmount(formatAmountInput(event.target.value))
+                  }
+                  placeholder="1.000.000"
+                  className="min-w-0 flex-1 bg-transparent text-sm font-black tabular-nums text-slate-950 outline-none placeholder:text-slate-400 dark:text-white"
+                  required
+                />
+                <span className="ml-3 rounded-xl bg-white px-2.5 py-1 text-xs font-black text-teal-700 ring-1 ring-teal-100 dark:bg-slate-900 dark:text-teal-200 dark:ring-slate-700">
+                  VND
+                </span>
+              </div>
+            </label>
 
-          <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
-            Nội dung giao dịch
-            <textarea
-              value={content}
-              onChange={(event) => setContent(event.target.value.slice(0, 255))}
-              maxLength={255}
-              rows={4}
-              className="mt-2 w-full resize-none rounded-2xl border border-teal-100 bg-teal-50/45 px-3 py-3 text-sm text-slate-950 outline-none ring-teal-100 transition focus:border-teal-400 focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              required
-            />
-            <span className="mt-1 block text-right text-xs text-slate-400">
-              {content.length}/255
-            </span>
-          </label>
-        </div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200">
+              Nội dung giao dịch
+              <textarea
+                value={content}
+                onChange={(event) => setContent(event.target.value.slice(0, 255))}
+                maxLength={255}
+                rows={3}
+                className="mt-2 w-full resize-none rounded-2xl border border-teal-100 bg-teal-50/45 px-4 py-3 text-sm font-semibold text-slate-950 outline-none ring-teal-100 transition placeholder:text-slate-400 focus:border-teal-400 focus:bg-white focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                required
+              />
+              <span className="mt-1 block text-right text-xs text-slate-400">
+                {content.length}/255
+              </span>
+            </label>
 
-        {error ? (
-          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
-            {error}
-          </div>
-        ) : null}
+            {error ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                {error}
+              </div>
+            ) : null}
 
-        <button
-          type="submit"
-          disabled={submitting || loadingUsers || !selectedUser?.bankhubAccountXid}
-          className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-700 dark:hover:bg-teal-800"
-        >
-          {submitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-          Tạo giao dịch sandbox qua SePay
-        </button>
-      </form>
-
-      <aside className="space-y-6">
-        <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-          <h2 className="font-black text-slate-950 dark:text-white">
-            Tài khoản đã liên kết từ SePay
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Danh sách lấy trực tiếp từ BankHub Sandbox để admin đối chiếu XID
-            trước khi tạo giao dịch.
-          </p>
-
-          <div className="mt-4 space-y-3">
-            {loadingAccounts ? (
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-950">
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-black text-white shadow-lg shadow-teal-500/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-teal-500/30 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Đang lấy tài khoản từ SePay
-              </div>
-            ) : bankhubAccounts.length === 0 ? (
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-950">
-                Chưa lấy được tài khoản nào từ BankHub Sandbox.
-              </div>
-            ) : (
-              bankhubAccounts.map((account, index) => (
-                <article
-                  key={account.bankhubAccountXid || `${index}`}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white">
-                        {account.bankName || "BankHub Sandbox"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {account.bankAccountName || "-"}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-teal-50 px-2 py-1 text-[11px] font-bold text-teal-700 ring-1 ring-teal-100 dark:bg-teal-950 dark:text-teal-200 dark:ring-teal-900">
-                      #{index + 1}
-                    </span>
-                  </div>
-                  <dl className="mt-3 space-y-2 text-xs">
-                    <div>
-                      <dt className="font-semibold text-slate-400">xid</dt>
-                      <dd className="mt-0.5 break-all font-bold text-slate-800 dark:text-slate-200">
-                        {account.bankhubAccountXid || "-"}
-                      </dd>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <dt className="font-semibold text-slate-400">
-                          account_number
-                        </dt>
-                        <dd className="mt-0.5 font-bold text-slate-800 dark:text-slate-200">
-                          {account.bankAccountNumber || "-"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-400">active</dt>
-                        <dd className="mt-0.5 font-bold text-slate-800 dark:text-slate-200">
-                          {formatStatusValue(account.status?.active)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="font-semibold text-slate-400">
-                          bank_api_connected
-                        </dt>
-                        <dd className="mt-0.5 font-bold text-slate-800 dark:text-slate-200">
-                          {formatStatusValue(account.status?.bankApiConnected)}
-                        </dd>
-                      </div>
-                    </div>
-                  </dl>
-                </article>
-              ))
-            )}
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {submitting ? "Đang tạo giao dịch..." : "Tạo giao dịch sandbox"}
+            </button>
           </div>
-        </section>
+        </form>
 
-        <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-          <h2 className="font-black text-slate-950 dark:text-white">
-            Payload gửi SePay
-          </h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">bank_account_xid</dt>
-              <dd className="max-w-[180px] break-all text-right font-bold text-slate-900 dark:text-white">
-                {selectedUser?.bankhubAccountXid || "-"}
-              </dd>
+        <aside className="space-y-5">
+          <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div className="flex items-center gap-3">
+              <span className="rounded-2xl bg-teal-50 p-2.5 text-teal-700 ring-1 ring-teal-100 dark:bg-teal-950/50 dark:text-teal-200 dark:ring-teal-900">
+                <UserRoundCheck className="h-5 w-5" />
+              </span>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                User đang chọn
+              </h2>
             </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">transfer_type</dt>
-              <dd className="font-bold text-slate-900 dark:text-white">
-                {transferType}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-slate-500">amount</dt>
-              <dd className="font-bold text-slate-900 dark:text-white">
-                {formatCurrencyVND(Number(amount) || 0)}
-              </dd>
-            </div>
-          </dl>
-        </section>
 
-        <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-          <h2 className="font-black text-slate-950 dark:text-white">
-            Kết quả BankHub
-          </h2>
-          {!result ? (
-            <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Sau khi submit thành công, trang hiển thị phản hồi từ BankHub.
-              Giao dịch trong MoneyTrack sẽ được tạo bởi webhook SePay.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-3">
-              <div className="rounded-2xl bg-teal-50 p-4 dark:bg-teal-950/40">
-                <p className="text-xs font-semibold uppercase text-teal-700 dark:text-teal-200">
-                  Đã gửi yêu cầu
-                </p>
-                <p className="mt-1 text-sm font-bold text-teal-900 dark:text-teal-100">
-                  Đang chờ webhook từ SePay
-                </p>
+            <dl className="mt-4 space-y-3 text-sm">
+              {[
+                ["Tên", selectedUser?.name || "-"],
+                ["Email", selectedUser?.email || "-"],
+                ["Ngân hàng", selectedUser?.bankName || "-"],
+                ["Chủ tài khoản", selectedUser?.bankAccountName || "-"],
+                ["Số tài khoản", selectedUser?.bankAccountNumber || "-"],
+                ["BankHub XID", selectedUser?.bankhubAccountXid || "-"],
+                ["Liên kết lúc", formatDateTime(selectedUser?.sepayLinkedAt)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3">
+                  <dt className="shrink-0 text-slate-500">{label}</dt>
+                  <dd className="max-w-[240px] break-all text-right font-bold text-slate-900 dark:text-white">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            {selectedBankHubAccount ? (
+              <div className="mt-4 rounded-2xl border border-teal-100 bg-teal-50/70 p-3 text-xs font-semibold text-teal-800 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-200">
+                BankHub đối chiếu: active{" "}
+                {formatStatusValue(selectedBankHubAccount.status?.active)}, API{" "}
+                {formatStatusValue(
+                  selectedBankHubAccount.status?.bankApiConnected
+                )}
               </div>
-              {webhookWaitState === "waiting" ? (
-                <div className="rounded-2xl border border-teal-200 bg-teal-50 p-4 text-sm font-semibold text-teal-800">
-                  {CALLBACK_SUCCESS_TOAST}
-                </div>
-              ) : null}
-              {webhookWaitState === "received" ? (
-                <div className="rounded-2xl border border-teal-200 bg-teal-50 p-4 text-sm font-semibold text-teal-800">
-                  {WEBHOOK_RECEIVED_MESSAGE}
-                </div>
-              ) : null}
-              {webhookWaitState === "timeout" ? (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-                  {WEBHOOK_TIMEOUT_MESSAGE}
-                </div>
-              ) : null}
-              <pre className="max-h-[360px] overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-white">
-                {stringifyResult(result)}
-              </pre>
+            ) : null}
+          </section>
+
+          <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="rounded-2xl bg-slate-50 p-2.5 text-slate-600 ring-1 ring-slate-100 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
+                  {webhookState === "received" ? (
+                    <CheckCircle2 className="h-5 w-5" />
+                  ) : (
+                    <Clock3 className="h-5 w-5" />
+                  )}
+                </span>
+                <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                  Trạng thái webhook
+                </h2>
+              </div>
               <Link
                 href="/admin/sepay-logs"
-                className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-teal-100 bg-white px-4 text-sm font-bold text-teal-700 transition-colors hover:bg-teal-50 dark:border-slate-700 dark:bg-slate-950 dark:text-teal-200"
+                className="text-sm font-bold text-teal-700 hover:text-teal-900 dark:text-teal-300"
               >
-                Mở SePay Logs để kiểm tra webhook
+                Mở SePay Logs
               </Link>
             </div>
-          )}
-        </section>
-      </aside>
+
+            <div className={`mt-4 rounded-2xl border p-4 text-sm font-bold ${statusTone}`}>
+              {WEBHOOK_MESSAGES[webhookState]}
+            </div>
+
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">transfer_type</dt>
+                <dd className="font-bold text-slate-900 dark:text-white">
+                  {transferType}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-slate-500">amount</dt>
+                <dd className="font-bold text-slate-900 dark:text-white">
+                  {formatCurrencyVND(parsedAmount || 0)}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div className="flex items-center gap-3">
+              <span className="rounded-2xl bg-slate-50 p-2.5 text-slate-600 ring-1 ring-slate-100 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
+                <Code2 className="h-5 w-5" />
+              </span>
+              <h2 className="text-lg font-black text-slate-950 dark:text-white">
+                Kết quả BankHub
+              </h2>
+            </div>
+
+            {!result ? (
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+                Chưa có phản hồi. Sau khi tạo giao dịch sandbox, JSON response
+                sẽ hiển thị tại đây.
+              </div>
+            ) : (
+              <pre className="mt-4 max-h-[320px] overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">
+                {stringifyResult(result)}
+              </pre>
+            )}
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

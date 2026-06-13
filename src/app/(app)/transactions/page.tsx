@@ -62,8 +62,8 @@ function signedAmount(transaction: Transaction) {
 function statusFor(transaction: Transaction) {
   if (transaction.classificationStatus === "EXCLUDED") {
     return {
-      label: "Bỏ qua báo cáo",
-      tone: "bg-slate-100 text-slate-600",
+      label: "Đã bỏ qua",
+      tone: "border-slate-200 bg-slate-100 text-slate-600",
     };
   }
 
@@ -72,21 +72,14 @@ function statusFor(transaction: Transaction) {
     transaction.classificationStatus === "UNCLASSIFIED"
   ) {
     return {
-      label: "Chưa phân loại",
-      tone: "bg-amber-50 text-amber-700",
-    };
-  }
-
-  if (transaction.source && transaction.source !== "MANUAL") {
-    return {
-      label: transaction.source,
-      tone: "bg-teal-50 text-teal-700",
+      label: "Cần xử lý",
+      tone: "border-amber-200 bg-amber-50 text-amber-700",
     };
   }
 
   return {
-    label: "Thủ công",
-    tone: "bg-sky-50 text-sky-700",
+    label: "Đã phân loại",
+    tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
   };
 }
 
@@ -122,6 +115,7 @@ export default function TransactionsPage() {
   const [classifyCategoryId, setClassifyCategoryId] = useState("");
   const [classifying, setClassifying] = useState(false);
   const [excludingId, setExcludingId] = useState<string | null>(null);
+
 
   async function loadData() {
     setLoading(true);
@@ -295,7 +289,6 @@ export default function TransactionsPage() {
       await authFetch(`/api/transactions/${transaction.id}/exclude`, {
         method: "PATCH",
       });
-      setNotice("Đã bỏ qua giao dịch khỏi báo cáo");
       await loadData();
     } catch (err) {
       setError(
@@ -314,8 +307,14 @@ export default function TransactionsPage() {
       !transaction.categoryId ||
       transaction.classificationStatus === "UNCLASSIFIED";
     const isExcluded = transaction.classificationStatus === "EXCLUDED";
+    const canExclude =
+      transaction.source === "SEPAY" && isUnclassified && !isExcluded;
 
     return {
+      href: `/transactions/${transaction.id}`,
+      ariaLabel: `Xem chi tiết giao dịch ${
+        transaction.note || transaction.description || transaction.id
+      }`,
       cells: [
         transaction.note || transaction.description || "Giao dịch",
         transaction.category?.name || "Chưa phân loại",
@@ -324,7 +323,7 @@ export default function TransactionsPage() {
       ],
       status: status.label,
       tone: status.tone,
-      actions: !isExcluded ? (
+      actions: isUnclassified || canExclude ? (
         <div className="flex flex-wrap gap-2">
           {isUnclassified ? (
             <button
@@ -335,15 +334,17 @@ export default function TransactionsPage() {
               Phân loại
             </button>
           ) : null}
-          <button
+          {canExclude ? (
+            <button
             type="button"
             onClick={() => void handleExcludeTransaction(transaction)}
             disabled={excludingId === transaction.id}
             className="inline-flex h-8 items-center rounded-full bg-slate-100 px-3 text-xs font-black text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
             title="Bỏ qua, không tính giao dịch này vào báo cáo"
           >
-            {excludingId === transaction.id ? "Đang bỏ qua..." : "Bỏ qua báo cáo"}
-          </button>
+            {excludingId === transaction.id ? "Đang bỏ qua..." : "Bỏ qua"}
+            </button>
+          ) : null}
         </div>
       ) : null,
     };
@@ -354,10 +355,9 @@ export default function TransactionsPage() {
         actionLabel={loading ? "Đang tải" : "Thêm giao dịch"}
         accent="from-sky-500 to-cyan-500"
         filters={[
-          `Thang ${DEFAULT_MONTH}/${DEFAULT_YEAR}`,
+          `Tháng ${DEFAULT_MONTH}/${DEFAULT_YEAR}`,
           `${categories.length} danh mục`,
-          `${totals.excluded} bỏ qua báo cáo`,
-          "Dữ liệu thật",
+          `${totals.excluded} bỏ qua `,
         ]}
         metrics={[
           {

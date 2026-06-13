@@ -100,14 +100,18 @@ export function CategoryFormModal({
     };
   }, [isOpen, editCategory]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function submitCurrentForm() {
     if (!name.trim()) {
       setNameError("Tên danh mục không được để trống");
       return;
     }
     setNameError("");
     await onSubmit({ name: name.trim(), type, icon, color });
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    await submitCurrentForm();
   }
 
   if (!isOpen) return null;
@@ -280,7 +284,8 @@ export function CategoryFormModal({
               Hủy
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={submitCurrentForm}
               disabled={submitting}
               className="rounded-xl bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600 active:scale-95 disabled:opacity-60 transition-all"
             >

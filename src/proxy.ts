@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+type UserRole = "USER" | "ADMIN";
+
+type TokenClaims = {
+  role?: string;
+  user?: { role?: string };
+  exp?: number;
+};
+
 const protectedRoutes = [
   "/dashboard",
   "/transactions",
@@ -27,7 +35,14 @@ const userOnlyRoutes = [
   "/change-password",
 ];
 
-function decodeRoleFromToken(token: string | undefined) {
+const ADMIN_HOME = "/admin/platform-statistics";
+const USER_HOME = "/dashboard";
+
+function normalizeRole(role: string | undefined): UserRole | undefined {
+  return role === "ADMIN" || role === "USER" ? role : undefined;
+}
+
+function decodeTokenClaims(token: string | undefined) {
   if (!token) {
     return undefined;
   }
@@ -43,26 +58,63 @@ function decodeRoleFromToken(token: string | undefined) {
       Math.ceil(normalizedPayload.length / 4) * 4,
       "="
     );
-    const decodedPayload = JSON.parse(atob(paddedPayload)) as {
-      role?: string;
-      user?: { role?: string };
-    };
 
-    return decodedPayload.role || decodedPayload.user?.role;
+    return JSON.parse(atob(paddedPayload)) as TokenClaims;
   } catch {
     return undefined;
   }
 }
 
+function getTokenState(token: string | undefined) {
+  const claims = decodeTokenClaims(token);
+
+  if (!token || !claims) {
+    return {
+      isPresent: Boolean(token),
+      isValid: false,
+      isExpired: Boolean(token),
+      role: undefined,
+    };
+  }
+
+  const isExpired =
+    typeof claims.exp === "number" ? claims.exp * 1000 <= Date.now() : false;
+
+  return {
+    isPresent: true,
+    isValid: true,
+    isExpired,
+    role: normalizeRole(claims.role || claims.user?.role),
+  };
+}
+
+function redirectWithClearedAuthCookies(url: URL) {
+  const response = NextResponse.redirect(url);
+  response.cookies.delete("access_token");
+  response.cookies.delete("user_role");
+  return response;
+}
+
+function nextWithClearedAuthCookies() {
+  const response = NextResponse.next();
+  response.cookies.delete("access_token");
+  response.cookies.delete("user_role");
+  return response;
+}
+
 export function proxy(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
-  const role = request.cookies.get("user_role")?.value || decodeRoleFromToken(token);
+  const tokenState = getTokenState(token);
+  const tokenCanAuthenticate =
+    tokenState.isPresent && tokenState.isValid && !tokenState.isExpired;
+  const role =
+    tokenState.role || normalizeRole(request.cookies.get("user_role")?.value);
   const { pathname } = request.nextUrl;
   const isAuthPage =
-    pathname.startsWith("/login") || 
-    pathname.startsWith("/register") || 
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
     pathname.startsWith("/forgot-password");
-    
+
   const isAuthRecoveryPage =
     pathname.startsWith("/login") &&
     (request.nextUrl.searchParams.has("expired") ||
@@ -71,28 +123,43 @@ export function proxy(request: NextRequest) {
   const isProtectedRoute = protectedRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
-  
+
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-  
+
   const isUserOnlyRoute = userOnlyRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  if (!token && isProtectedRoute) {
+  if (!tokenCanAuthenticate && isProtectedRoute) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("returnUrl", `${pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(loginUrl);
+
+    if (tokenState.isPresent) {
+      loginUrl.searchParams.set("expired", "1");
+    }
+
+    loginUrl.searchParams.set(
+      "returnUrl",
+      `${pathname}${request.nextUrl.search}`
+    );
+
+    return tokenState.isPresent
+      ? redirectWithClearedAuthCookies(loginUrl)
+      : NextResponse.redirect(loginUrl);
   }
 
-  if (token && isAdminRoute && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (!tokenCanAuthenticate && isAuthPage) {
+    return tokenState.isPresent ? nextWithClearedAuthCookies() : NextResponse.next();
   }
 
   if (token && role === "ADMIN" && isUserOnlyRoute) {
     return NextResponse.redirect(new URL("/admin/platform-statistics", request.url));
   }
 
-  if (token && isAuthPage && !isAuthRecoveryPage) {
+  if (tokenCanAuthenticate && role === "ADMIN" && isUserOnlyRoute) {
+    return NextResponse.redirect(new URL(ADMIN_HOME, request.url));
+  }
+
+  if (tokenCanAuthenticate && isAuthPage && !isAuthRecoveryPage) {
     return NextResponse.redirect(
       new URL(
         role === "ADMIN" ? "/admin/platform-statistics" : "/dashboard",

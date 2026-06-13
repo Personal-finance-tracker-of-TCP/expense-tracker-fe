@@ -360,11 +360,11 @@ export function ProfileForm({ user }: { user: User }) {
       setLocalUser(nextUser);
       setUser(nextUser);
       updateStoredUser({ balance: result.balance });
-      setBalanceMessage("Da cap nhat so du tai khoan.");
+      setBalanceMessage("Đã cập nhật số dư tài khoản.");
       setBalanceModalOpen(false);
     } catch (err) {
       setBalanceError(
-        err instanceof Error ? err.message : "Khong the cap nhat so du"
+        err instanceof Error ? err.message : "Không thể cập nhật số dư"
       );
     } finally {
       setBalanceUpdating(false);
@@ -503,10 +503,10 @@ export function ProfileForm({ user }: { user: User }) {
                 <p className="text-sm font-black text-slate-950">BankHub</p>
                 <p className="mt-1 text-xs font-medium leading-5 text-slate-500">
                   {bankHubLoading
-                    ? "Dang kiem tra lien ket..."
+                    ? "Đang kiểm tra kết nối..."
                     : bankHub.linked
                       ? `${bankHub.bankName}${bankHub.accountNumber ? ` - ${bankHub.accountNumber}` : ""}`
-                      : "Chua lien ket tai khoan ngan hang"}
+                      : "Chưa liên kết tài khoản ngân hàng"}
                 </p>
                 {bankHub.accountName ? (
                   <p className="mt-1 truncate text-xs font-bold text-slate-700">
@@ -538,7 +538,7 @@ export function ProfileForm({ user }: { user: User }) {
               ) : (
                 <ExternalLink className="size-4" aria-hidden="true" />
               )}
-              {bankHub.linked ? "Da lien ket BankHub" : "Lien ket BankHub"}
+              {bankHub.linked ? "Đã liên kết BankHub" : "Liên kết BankHub"}
             </Button>
             {!bankHub.linked ? (
               <div className="mt-3 rounded-2xl border border-teal-100 bg-teal-50/70 p-3">
@@ -612,7 +612,7 @@ export function ProfileForm({ user }: { user: User }) {
                 </div>
                 <div>
                   <p className="text-sm font-black text-slate-950">
-                    Vi ca nhan
+                    Ví cá nhân
                   </p>
                   <p className="mt-1 text-2xl font-black text-slate-950">
                     {formatCurrencyVND(normalizeBalance(displayUser.balance))}
@@ -626,7 +626,7 @@ export function ProfileForm({ user }: { user: User }) {
                 onClick={openBalanceModal}
               >
                 <Pencil className="size-4" aria-hidden="true" />
-                Cap nhat so du
+                Cập nhật số dư
               </Button>
             </div>
             {balanceMessage ? (

@@ -1,3 +1,6 @@
-import BudgetsPage from "../budgets/page";
 
-export default BudgetsPage;
+import { redirect } from "next/navigation";
+
+export default function BudgetPage() {
+  redirect("/budgets");
+}

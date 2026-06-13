@@ -192,6 +192,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const state = get();
     const accessToken = state.accessToken;
 
+    setUserRoleCookie(user.role);
+
     if (accessToken) {
       setStoredAuth(user, accessToken);
     } else if (typeof window !== "undefined") {
@@ -219,6 +221,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (typeof window !== "undefined" && user) {
         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+        setUserRoleCookie(user.role);
       }
 
       return { user };

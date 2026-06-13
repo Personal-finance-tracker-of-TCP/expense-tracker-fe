@@ -7,6 +7,7 @@ import type {
 } from "react";
 import type { LucideIcon } from "lucide-react";
 import { ArrowUpRight, Loader2, Plus, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,8 @@ type TableRow = {
   status?: string;
   tone?: string;
   actions?: ReactNode;
+  href?: string;
+  ariaLabel?: string;
 };
 
 type SideItem = {
@@ -81,10 +84,11 @@ export function WorkspaceMockup({
   children,
   bottomCards = [],
 }: WorkspaceMockupProps) {
+  const router = useRouter();
   const hasRowActions = tableRows.some((row) => row.actions);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item, index) => {
           const Icon = item.icon;
@@ -193,8 +197,34 @@ export function WorkspaceMockup({
                 </thead>
                 <tbody className="divide-y divide-teal-100 dark:divide-slate-800">
                   {tableRows.length > 0 ? (
-                    tableRows.map((row, rowIndex) => (
-                      <tr key={`${row.cells[0]}-${rowIndex}`} className="bg-white dark:bg-slate-950">
+                    tableRows.map((row, rowIndex) => {
+                      const clickable = Boolean(row.href);
+
+                      return (
+                      <tr
+                        key={`${row.cells[0]}-${rowIndex}`}
+                        role={clickable ? "link" : undefined}
+                        tabIndex={clickable ? 0 : undefined}
+                        aria-label={row.ariaLabel}
+                        onClick={
+                          row.href ? () => router.push(row.href as string) : undefined
+                        }
+                        onKeyDown={
+                          row.href
+                            ? (event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  router.push(row.href as string);
+                                }
+                              }
+                            : undefined
+                        }
+                        className={cn(
+                          "bg-white dark:bg-slate-950",
+                          clickable &&
+                            "cursor-pointer outline-none transition-colors hover:bg-teal-50/45 focus:bg-teal-50/45 focus:ring-4 focus:ring-teal-500/15 dark:hover:bg-slate-900 dark:focus:bg-slate-900"
+                        )}
+                      >
                         {row.cells.map((cell, cellIndex) => (
                           <td
                             key={`${cell}-${cellIndex}`}
@@ -219,10 +249,16 @@ export function WorkspaceMockup({
                           </span>
                         </td>
                         {hasRowActions ? (
-                          <td className="px-4 py-4">{row.actions}</td>
+                          <td
+                            className="px-4 py-4"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            {row.actions}
+                          </td>
                         ) : null}
                       </tr>
-                    ))
+                    );
+                    })
                   ) : (
                     <tr className="bg-white">
                       <td
