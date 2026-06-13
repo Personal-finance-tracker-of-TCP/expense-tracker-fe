@@ -137,7 +137,7 @@ export default async function SystemStatusPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold uppercase text-emerald-600">
-                    MoneyTrack Runtime
+                    FinTrack Runtime
                   </p>
                   <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600">
                     SSR • render động mỗi request

@@ -184,7 +184,7 @@ function redirectToLoginAfterToast() {
 
   sessionExpiredRedirecting = true;
   const currentPath = `${pathname}${search}${hash}`;
-  const loginUrl = `/login?returnUrl=${encodeURIComponent(currentPath)}`;
+  const loginUrl = `/login?expired=1&returnUrl=${encodeURIComponent(currentPath)}`;
 
   window.setTimeout(() => {
     window.location.assign(loginUrl);

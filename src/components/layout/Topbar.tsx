@@ -11,7 +11,6 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
 
 import {
   DropdownMenu,
@@ -20,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import api from "@/lib/api";
+import { useLogout } from "@/hooks/useLogout";
 import { getInitials } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { useSidebarStore } from "@/store/sidebarStore";
@@ -41,7 +40,7 @@ export function Topbar() {
   const pathname = usePathname();
   const title = pageTitles[pathname] ?? "FinTrack";
   const toggle = useSidebarStore((state) => state.toggle);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const logout = useLogout("/login");
   const user = useAuthStore((state) => state.user);
   const [isMounted, setIsMounted] = useState(false);
   const displayUser = isMounted ? user : null;
@@ -59,13 +58,6 @@ export function Topbar() {
       active = false;
     };
   }, []);
-
-  const handleLogout = async () => {
-    await api.post("/auth/logout").catch(() => null);
-    clearAuth();
-    await signOut({ redirect: false }).catch(() => null);
-    router.push("/login");
-  };
 
   return (
     <header className="sticky top-0 z-30 flex h-[5.5rem] w-full items-center justify-between border-b border-white/70 bg-white/75 px-4 shadow-sm shadow-teal-950/[0.03] backdrop-blur-xl sm:px-6 lg:px-8">
@@ -160,7 +152,7 @@ export function Topbar() {
             <DropdownMenuSeparator className="mx-2 bg-teal-100" />
             <DropdownMenuItem
               className="cursor-pointer gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold text-red-600 focus:bg-red-50 focus:text-red-700"
-              onClick={handleLogout}
+              onClick={logout}
             >
               <LogOut className="h-4 w-4" aria-hidden="true" />
               Logout

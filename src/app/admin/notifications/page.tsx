@@ -102,7 +102,7 @@ export default function AdminNotificationsPage() {
               </span>
               <div>
                 <p className="text-sm font-semibold uppercase text-emerald-600">
-                  MoneyTrack Admin
+                  FinTrack Admin
                 </p>
                 <h1 className="mt-2 text-3xl font-bold tracking-tight">Thông báo</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">

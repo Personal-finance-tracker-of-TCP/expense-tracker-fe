@@ -1,6 +1,4 @@
-import Link from "next/link";
 import {
-  ArrowRight,
   BarChart2,
   FileText,
   PiggyBank,
@@ -8,7 +6,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { HomeActions } from "@/components/home/HomeActions";
 
 const features: {
   icon: LucideIcon;
@@ -66,27 +63,7 @@ export default function Home() {
               Quản lý thu chi, ngân sách, báo cáo và gợi ý tiết kiệm trong một
               trải nghiệm fintech gọn gàng.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/register"
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "h-11 bg-white px-5 text-base font-black text-teal-900 shadow-lg shadow-black/15 hover:bg-teal-50"
-                )}
-              >
-                Bắt đầu miễn phí
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-              <Link
-                href="/login"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "h-11 border-white/20 bg-white/10 px-5 text-base font-black text-white backdrop-blur hover:bg-white/15"
-                )}
-              >
-                Đăng nhập
-              </Link>
-            </div>
+            <HomeActions />
           </div>
 
           <div className="relative h-[330px] overflow-hidden rounded-lg border border-white/12 bg-white/10 p-3 shadow-2xl shadow-black/25 backdrop-blur sm:h-[380px] lg:h-[430px]">
