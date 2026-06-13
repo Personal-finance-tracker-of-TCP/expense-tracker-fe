@@ -1,6 +1,6 @@
-# MoneyTrack / FinTrack Frontend
+#FinTrack Frontend
 
-MoneyTrack / FinTrack là giao diện web quản lý tài chính cá nhân cho đồ án INT1334 Lập trình Web. Frontend dùng Next.js App Router để phục vụ người dùng cuối và admin, kết nối với backend Express/Prisma qua REST API.
+FinTrack là giao diện web quản lý tài chính cá nhân cho đồ án INT1334 Lập trình Web. Frontend dùng Next.js App Router để phục vụ người dùng cuối và admin, kết nối với backend Express/Prisma qua REST API.
 
 ## Tech Stack
 
