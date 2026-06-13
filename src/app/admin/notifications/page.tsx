@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Bell, Check, CheckCheck, Loader2, MailOpen, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Loader2,
+  MailOpen,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { authFetch } from "@/lib/moneytrack-api";
@@ -34,6 +41,10 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function isFeedbackNotification(item: AdminNotification) {
+  return item.type === "FEEDBACK";
+}
+
 export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,7 +55,7 @@ export default function AdminNotificationsPage() {
     [notifications]
   );
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -52,18 +63,18 @@ export default function AdminNotificationsPage() {
       const data = await authFetch<AdminNotification[]>("/api/admin/notifications", {
         admin: true,
       });
-      setNotifications(data || []);
+      setNotifications((data || []).filter(isFeedbackNotification));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể tải thông báo");
+      setError(err instanceof Error ? err.message : "Không thể tải thông báo feedback");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(fetchNotifications, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [fetchNotifications]);
 
   const markRead = async (id: string) => {
     try {
@@ -88,7 +99,7 @@ export default function AdminNotificationsPage() {
         admin: true,
       });
       setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-      toast.success("Đã đánh dấu tất cả thông báo là đã đọc.");
+      toast.success("Đã đánh dấu tất cả feedback là đã đọc.");
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Không thể đánh dấu tất cả"
@@ -109,10 +120,11 @@ export default function AdminNotificationsPage() {
                 FinTrack Admin
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
-                Các thông báo
+                Thông báo feedback
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                Theo dõi thông báo hệ thống được tạo cho người dùng từ backend.
+                Log các phản hồi người dùng gửi cho admin. Trang này không hiển thị
+                thông báo giao dịch hoặc chuyển tiền của user.
               </p>
             </div>
           </div>
@@ -145,7 +157,7 @@ export default function AdminNotificationsPage() {
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           {[
-            ["Tổng thông báo", notifications.length],
+            ["Tổng feedback", notifications.length],
             ["Chưa đọc", unreadCount],
             ["Đã đọc", notifications.length - unreadCount],
           ].map(([label, value]) => (
@@ -174,13 +186,13 @@ export default function AdminNotificationsPage() {
         {loading ? (
           <div className="flex items-center justify-center gap-3 py-16 text-sm font-semibold text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Đang tải thông báo...
+            Đang tải thông báo feedback...
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
             <MailOpen className="h-10 w-10 text-slate-300" />
             <p className="mt-3 text-sm font-semibold text-slate-500">
-              Chưa có thông báo quản trị.
+              Chưa có feedback mới.
             </p>
           </div>
         ) : (
@@ -200,22 +212,22 @@ export default function AdminNotificationsPage() {
                       <h2 className="min-w-0 truncate font-bold text-slate-900 dark:text-white">
                         {item.title}
                       </h2>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                        {item.type}
+                      <span className="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-200">
+                        Feedback
                       </span>
                       {!item.isRead ? (
-                        <span className="rounded-full bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-700">
+                        <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
                           Chưa đọc
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-600 dark:text-slate-300">
                       {item.message}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-400">
                       <span>{formatDate(item.createdAt)}</span>
                       <span>
-                        User: {item.user?.email || "-"}{" "}
+                        Admin nhận: {item.user?.email || "-"}{" "}
                         {item.user?.name ? `(${item.user.name})` : ""}
                       </span>
                     </div>
