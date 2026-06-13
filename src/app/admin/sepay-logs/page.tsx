@@ -169,9 +169,9 @@ export default function SepayLogsPage() {
       ) : null}
 
       <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white/90 shadow-xl shadow-teal-950/[0.05] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-        <div className="overflow-x-auto">
+        <div className="max-h-[640px] overflow-auto">
           <table className="min-w-[1260px] divide-y divide-slate-100 text-sm dark:divide-slate-800">
-            <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-400 dark:bg-slate-950">
+            <thead className="sticky top-0 z-10 bg-slate-50/95 text-xs uppercase tracking-[0.12em] text-slate-400 shadow-[0_1px_0_rgba(15,23,42,0.08)] backdrop-blur dark:bg-slate-950/95">
               <tr>
                 <th className="px-4 py-3 text-left">SePay ID</th>
                 <th className="px-4 py-3 text-left">Gateway</th>
@@ -256,7 +256,7 @@ export default function SepayLogsPage() {
                         <summary className="cursor-pointer text-xs font-bold text-teal-700 dark:text-teal-300">
                           Xem payload
                         </summary>
-                        <pre className="mt-2 max-h-56 overflow-auto rounded-2xl bg-slate-950 p-3 text-xs leading-5 text-white">
+                        <pre className="mt-2 max-h-56 max-w-[280px] overflow-auto rounded-2xl bg-slate-950 p-3 text-xs leading-5 text-white">
                           {stringifyPayload(log.rawPayload)}
                         </pre>
                       </details>

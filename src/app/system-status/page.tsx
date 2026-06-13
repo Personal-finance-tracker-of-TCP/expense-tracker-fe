@@ -163,14 +163,14 @@ export default async function SystemStatusPage() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {statusCards.map((item) => {
             const Icon = item.icon;
 
             return (
               <article
                 key={item.label}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="h-full min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
@@ -178,10 +178,10 @@ export default async function SystemStatusPage() {
                   </span>
                   {item.badge}
                 </div>
-                <p className="mt-4 text-xs font-bold uppercase text-slate-400">
+                <p className="mt-4 truncate text-xs font-bold uppercase text-slate-400">
                   {item.label}
                 </p>
-                <p className="mt-1 break-words text-xl font-extrabold text-slate-900">
+                <p className="mt-1 line-clamp-2 break-words text-xl font-extrabold text-slate-900">
                   {item.value}
                 </p>
               </article>

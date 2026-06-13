@@ -208,15 +208,15 @@ export default function AdminPlatformStatisticsPage() {
           return (
             <article
               key={item.label}
-              className="rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.04] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
+              className="h-full min-w-0 rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-xl shadow-teal-950/[0.04] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
             >
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 ring-1 ring-teal-100 dark:bg-teal-950/60 dark:text-teal-200 dark:ring-teal-900">
                 <Icon className="h-5 w-5" />
               </span>
-              <p className="mt-4 text-xs font-bold uppercase text-slate-400">
+              <p className="mt-4 line-clamp-2 min-h-8 text-xs font-bold uppercase text-slate-400">
                 {item.label}
               </p>
-              <p className="mt-1 text-3xl font-black tabular-nums text-slate-950 dark:text-white">
+              <p className="mt-1 truncate text-3xl font-black tabular-nums text-slate-950 dark:text-white">
                 {loading ? "..." : formatNumber(item.value)}
               </p>
             </article>
@@ -267,7 +267,7 @@ export default function AdminPlatformStatisticsPage() {
           <h2 className="text-xl font-black text-slate-950 dark:text-white">
             Thông báo gần đây
           </h2>
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 max-h-[380px] space-y-3 overflow-y-auto pr-1">
             {loading ? (
               <div className="flex items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-950">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -281,7 +281,7 @@ export default function AdminPlatformStatisticsPage() {
               recentNotifications.map((item) => (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+                  className="min-w-0 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
                 >
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-teal-50 px-2 py-1 text-[11px] font-bold text-teal-700 dark:bg-teal-950 dark:text-teal-200">

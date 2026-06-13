@@ -146,7 +146,7 @@ export function NotificationBell() {
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 sm:w-96">
+        <div className="fixed left-3 right-3 z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-700 dark:bg-slate-900 sm:absolute sm:left-auto sm:right-0 sm:w-96">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-slate-900 dark:text-white">
@@ -169,7 +169,7 @@ export function NotificationBell() {
             ) : null}
           </div>
 
-          <div className="max-h-80 divide-y divide-slate-50 overflow-y-auto dark:divide-slate-800">
+          <div className="max-h-[min(24rem,calc(100vh-7rem))] divide-y divide-slate-50 overflow-y-auto dark:divide-slate-800">
             {loading && notifications.length === 0 ? (
               <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm font-medium text-slate-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -200,7 +200,7 @@ export function NotificationBell() {
                     void handleMarkRead(notification.id, notification.isRead)
                   }
                   type="button"
-                  className={`flex w-full cursor-pointer flex-col gap-1 p-4 text-left transition-colors ${
+                  className={`flex w-full min-w-0 cursor-pointer flex-col gap-1 p-4 text-left transition-colors ${
                     notification.isRead
                       ? "bg-white hover:bg-slate-50/70 dark:bg-slate-900 dark:hover:bg-slate-800"
                       : "bg-emerald-50/30 hover:bg-emerald-50/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30"
@@ -212,7 +212,7 @@ export function NotificationBell() {
                         notification.isRead
                           ? "font-semibold text-slate-700 dark:text-slate-200"
                           : "font-bold text-slate-900 dark:text-white"
-                      }`}
+                      } line-clamp-1 min-w-0`}
                     >
                       {notification.title}
                     </span>
@@ -221,7 +221,7 @@ export function NotificationBell() {
                     ) : null}
                   </div>
 
-                  <p className="text-xs leading-normal text-slate-500 dark:text-slate-400">
+                  <p className="line-clamp-3 text-xs leading-normal text-slate-500 dark:text-slate-400">
                     {notification.message}
                   </p>
                   <span className="text-[10px] font-medium text-slate-400">

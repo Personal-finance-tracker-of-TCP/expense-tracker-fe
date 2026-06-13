@@ -506,15 +506,15 @@ export default function DashboardPage() {
           return (
             <div
               key={item.label}
-              className="animate-rise rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-lg shadow-teal-950/[0.06] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
+              className="animate-rise flex h-full min-h-[156px] min-w-0 flex-col justify-between rounded-[1.75rem] border border-white/80 bg-white/90 p-5 shadow-lg shadow-teal-950/[0.06] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
               style={{ animationDelay: `${index * 70}ms` }}
             >
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-500">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-500">
                     {item.label}
                   </p>
-                  <p className="mt-2 text-2xl font-black text-slate-950">
+                  <p className="mt-2 truncate text-2xl font-black text-slate-950">
                     {item.value}
                   </p>
                 </div>
@@ -666,18 +666,18 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="mt-6 grid max-h-[320px] auto-rows-auto grid-cols-1 content-start gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+          <div className="mt-6 grid max-h-[340px] auto-rows-auto grid-cols-1 content-start gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
             {budgetCards.length > 0 ? (
               budgetCards.map((budget) => (
                 <div
                   key={budget.label}
-                  className="rounded-3xl border border-slate-100 bg-slate-50/80 p-4"
+                  className="min-w-0 rounded-3xl border border-slate-100 bg-slate-50/80 p-4"
                 >
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-bold text-slate-800">
+                  <div className="flex min-w-0 items-center justify-between gap-3 text-sm">
+                    <span className="truncate font-bold text-slate-800">
                       {budget.label}
                     </span>
-                    <span className="font-black text-slate-950">
+                    <span className="shrink-0 font-black text-slate-950">
                       {budget.value}
                     </span>
                   </div>
@@ -712,7 +712,7 @@ export default function DashboardPage() {
               Xem tất cả
             </Link>
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 max-h-[360px] space-y-3 overflow-y-auto pr-1">
             {recentTransactions.length > 0 ? (
               recentTransactions.map((transaction) => {
                 const isUnclassified =
@@ -720,7 +720,7 @@ export default function DashboardPage() {
                   transaction.classificationStatus === "UNCLASSIFIED";
 
                 return (
-                <div key={transaction.id} className="flex items-center gap-3">
+                <div key={transaction.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-100 bg-white/70 p-3">
                   <div
                     className={`flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-black ${
                       transaction.type === "INCOME"
@@ -746,7 +746,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    <p className="text-sm font-black text-slate-950">
+                    <p className="whitespace-nowrap text-sm font-black tabular-nums text-slate-950">
                       {signedAmount(transaction)}
                     </p>
                     {isUnclassified ? (
@@ -772,15 +772,15 @@ export default function DashboardPage() {
       </div>
 
       <section className="rounded-[1.75rem] border border-white/80 bg-white/80 p-6 shadow-lg shadow-teal-950/[0.05] backdrop-blur">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[
             ["Thu nhập", formatCurrencyVND(computed.totalIncome)],
             ["Tiết kiệm", formatCurrencyVND(toNumber(summary?.savings))],
             ["Tỷ lệ tiết kiệm", `${toNumber(summary?.savingsRate).toFixed(1)}%`],
           ].map(([title, description]) => (
-            <div key={title} className="rounded-3xl bg-slate-50/90 p-5">
-              <p className="text-sm font-black text-slate-950">{title}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
+            <div key={title} className="min-w-0 rounded-3xl bg-slate-50/90 p-5">
+              <p className="truncate text-sm font-black text-slate-950">{title}</p>
+              <p className="mt-2 truncate text-sm leading-6 text-slate-500">
                 {description}
               </p>
             </div>

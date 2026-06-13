@@ -130,22 +130,22 @@ export default async function StatisticsPage() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {statCards.map((item) => {
             const Icon = item.icon;
 
             return (
               <article
                 key={item.label}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="h-full min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
                   <Icon className="h-5 w-5" />
                 </span>
-                <p className="mt-4 text-xs font-bold uppercase text-slate-400">
+                <p className="mt-4 truncate text-xs font-bold uppercase text-slate-400">
                   {item.label}
                 </p>
-                <p className="mt-1 text-3xl font-extrabold tabular-nums text-slate-900">
+                <p className="mt-1 truncate text-3xl font-extrabold tabular-nums text-slate-900">
                   {formatNumber(item.value)}
                 </p>
               </article>

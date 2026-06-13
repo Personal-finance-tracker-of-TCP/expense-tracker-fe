@@ -184,11 +184,11 @@ export default function AdminNotificationsPage() {
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="max-h-[640px] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-800">
             {notifications.map((item) => (
               <article
                 key={item.id}
-                className={`p-5 transition-colors ${
+                className={`min-w-0 p-5 transition-colors ${
                   item.isRead
                     ? "bg-white/80 dark:bg-slate-900/70"
                     : "bg-teal-50/50 dark:bg-teal-950/20"
@@ -197,7 +197,7 @@ export default function AdminNotificationsPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="font-bold text-slate-900 dark:text-white">
+                      <h2 className="min-w-0 truncate font-bold text-slate-900 dark:text-white">
                         {item.title}
                       </h2>
                       <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -209,7 +209,7 @@ export default function AdminNotificationsPage() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                       {item.message}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium text-slate-400">

@@ -88,7 +88,7 @@ export function WorkspaceMockup({
   const hasRowActions = tableRows.some((row) => row.actions);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 overflow-x-hidden">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item, index) => {
           const Icon = item.icon;
@@ -96,15 +96,15 @@ export function WorkspaceMockup({
           return (
             <section
               key={item.label}
-              className="animate-rise rounded-[1.75rem] border border-white/80 bg-white/88 p-5 shadow-lg shadow-teal-950/[0.05] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/90"
+              className="animate-rise flex h-full min-h-[150px] min-w-0 flex-col justify-between rounded-[1.75rem] border border-white/80 bg-white/88 p-5 shadow-lg shadow-teal-950/[0.05] backdrop-blur transition-all duration-200 hover:-translate-y-1 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/90"
               style={{ animationDelay: `${index * 60}ms` }}
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-500 dark:text-slate-300">
                     {item.label}
                   </p>
-                  <p className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                  <p className="mt-2 truncate text-2xl font-black text-slate-950 dark:text-white">
                     {item.value}
                   </p>
                 </div>
@@ -117,9 +117,9 @@ export function WorkspaceMockup({
                   <Icon className="size-5" aria-hidden="true" />
                 </div>
               </div>
-              <p className="mt-4 flex items-center gap-2 text-xs font-black text-teal-700">
-                <ArrowUpRight className="size-3.5" aria-hidden="true" />
-                {item.helper}
+              <p className="mt-4 flex min-w-0 items-center gap-2 text-xs font-black text-teal-700">
+                <ArrowUpRight className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{item.helper}</span>
               </p>
             </section>
           );
@@ -180,9 +180,9 @@ export function WorkspaceMockup({
           </div>
 
           <div className="mt-5 overflow-hidden rounded-[1.5rem] border border-teal-100 bg-white dark:border-slate-700 dark:bg-slate-950">
-            <div className="overflow-x-auto">
+            <div className="max-h-[520px] overflow-auto">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-teal-50/70 text-xs uppercase tracking-[0.16em] text-teal-800 dark:bg-slate-800 dark:text-teal-200">
+                <thead className="sticky top-0 z-10 bg-teal-50/95 text-xs uppercase tracking-[0.16em] text-teal-800 shadow-[0_1px_0_rgba(20,184,166,0.16)] backdrop-blur dark:bg-slate-800/95 dark:text-teal-200">
                   <tr>
                     {tableColumns.map((column) => (
                       <th key={column} className="px-4 py-3 font-black">
@@ -229,10 +229,10 @@ export function WorkspaceMockup({
                           <td
                             key={`${cell}-${cellIndex}`}
                             className={cn(
-                              "px-4 py-4",
+                              "max-w-[260px] px-4 py-4",
                               cellIndex === 0
-                                ? "font-black text-slate-950 dark:text-white"
-                                : "font-medium text-slate-600 dark:text-slate-300"
+                                ? "truncate font-black text-slate-950 dark:text-white"
+                                : "truncate font-medium text-slate-600 dark:text-slate-300"
                             )}
                           >
                             {cell}
@@ -281,24 +281,24 @@ export function WorkspaceMockup({
             {sideDescription}
           </p>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 max-h-[420px] space-y-4 overflow-y-auto pr-1">
             {sideItems.map((item) => (
               <div
                 key={item.label}
                 className="rounded-[1.5rem] border border-teal-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-950"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-slate-950 dark:text-white">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-950 dark:text-white">
                       {item.label}
                     </p>
                     {item.helper ? (
-                      <p className="mt-1 text-xs font-medium text-slate-500">
+                      <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">
                         {item.helper}
                       </p>
                     ) : null}
                   </div>
-                  <p className="text-sm font-black text-teal-700">
+                  <p className="shrink-0 text-sm font-black text-teal-700">
                     {item.value}
                   </p>
                 </div>
@@ -321,21 +321,21 @@ export function WorkspaceMockup({
       </div>
 
       {bottomCards.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {bottomCards.map((card) => {
             const Icon = card.icon;
 
             return (
               <section
                 key={card.title}
-                className="animate-rise rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-lg shadow-teal-950/[0.05] backdrop-blur"
+                className="animate-rise h-full min-w-0 rounded-[1.75rem] border border-white/80 bg-white/80 p-5 shadow-lg shadow-teal-950/[0.05] backdrop-blur"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-black text-slate-950">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-slate-950">
                       {card.title}
                     </p>
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
                       {card.description}
                     </p>
                   </div>
@@ -343,7 +343,7 @@ export function WorkspaceMockup({
                     <Icon className="size-5" aria-hidden="true" />
                   </div>
                 </div>
-                <p className="mt-4 text-2xl font-black text-slate-950">
+                <p className="mt-4 truncate text-2xl font-black text-slate-950">
                   {card.value}
                 </p>
               </section>
