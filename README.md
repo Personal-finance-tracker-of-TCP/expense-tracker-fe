@@ -99,26 +99,3 @@ Sau khi backend chạy `npx prisma db seed`:
 | --- | --- | --- |
 | Admin | `admin@moneytrack.local` | `12345678` |
 | User | `user@moneytrack.local` | `12345678` |
-
-## Demo Script Bảo Vệ
-
-1. Đăng nhập user `user@moneytrack.local`.
-2. Mở Dashboard để xem tổng quan, chart và giao dịch gần đây.
-3. Vào Transactions, click một giao dịch để mở `/transactions/[id]`.
-4. Demo phân loại giao dịch chưa phân loại, xóa giao dịch thủ công có confirm.
-5. Vào Reports, tải PDF và Excel.
-6. Vào AI Advisor, gửi câu hỏi tư vấn.
-7. Đăng nhập admin, mở BankHub Sandbox.
-8. Chọn user đã liên kết BankHub, nhập `1000000`, tạo giao dịch sandbox.
-9. Mở SePay Logs để xem webhook.
-10. Quay lại user, kiểm tra NotificationBell nhận thông báo mới.
-
-## Backend Link
-
-Frontend cần backend MoneyTrack/FinTrack chạy và cấu hình `NEXT_PUBLIC_API_URL`. Local mặc định:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
-```
-
-Production nên cấu hình URL backend đã deploy trên Render/Railway hoặc nền tảng tương đương.
