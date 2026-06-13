@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { getApiBaseUrl } from "@/lib/api-url";
+import { getServerAccessToken } from "@/lib/server-api";
 
 const optionalText = (maxLength: number, message: string) =>
   z.preprocess((value) => {
@@ -22,11 +23,12 @@ const feedbackSchema = z.object({
     .trim()
     .min(10, "Nội dung phải có ít nhất 10 ký tự")
     .max(500, "Nội dung tối đa 500 ký tự"),
+  type: z.enum(["BUG", "FEATURE", "OTHER"]).default("OTHER"),
   rating: z.coerce
-    .number({ message: "Rating phải là số" })
-    .int("Rating phải là số nguyên")
-    .min(1, "Rating tối thiểu là 1")
-    .max(5, "Rating tối đa là 5"),
+    .number({ message: "Đánh giá phải là số" })
+    .int("Đánh giá phải là số nguyên")
+    .min(1, "Đánh giá tối thiểu là 1")
+    .max(5, "Đánh giá tối đa là 5"),
   senderName: optionalText(100, "Tên người gửi tối đa 100 ký tự"),
   senderEmail: optionalText(150, "Email người gửi tối đa 150 ký tự"),
 });
@@ -38,11 +40,13 @@ export type FeedbackActionState = {
     title?: string;
     message?: string;
     rating?: string;
+    type?: string;
   };
   values?: {
     title?: string;
     message?: string;
     rating?: string;
+    type?: string;
   };
 };
 
@@ -53,7 +57,7 @@ type FeedbackApiEnvelope = {
 };
 
 function getBackendUrl(path: string) {
-  return `${API_URL.replace(/\/+$/, "")}${path}`;
+  return `${getApiBaseUrl()}${path}`;
 }
 
 async function parseFeedbackResponse(response: Response) {
@@ -67,7 +71,6 @@ async function parseFeedbackResponse(response: Response) {
   }
 }
 
-// Server Action dùng để đáp ứng yêu cầu Next.js: client không gọi trực tiếp REST API.
 export async function submitFeedbackAction(
   _prevState: FeedbackActionState,
   formData: FormData
@@ -76,6 +79,7 @@ export async function submitFeedbackAction(
     title: String(formData.get("title") || ""),
     message: String(formData.get("message") || ""),
     rating: String(formData.get("rating") || ""),
+    type: String(formData.get("type") || "OTHER"),
     senderName: String(formData.get("senderName") || ""),
     senderEmail: String(formData.get("senderEmail") || ""),
   };
@@ -87,12 +91,22 @@ export async function submitFeedbackAction(
 
     return {
       success: false,
-      message: "Vui lòng kiểm tra lại thông tin feedback.",
+      message: "Vui lòng kiểm tra lại thông tin phản hồi.",
       errors: {
         title: fieldErrors.title?.[0],
         message: fieldErrors.message?.[0],
         rating: fieldErrors.rating?.[0],
+        type: fieldErrors.type?.[0],
       },
+      values,
+    };
+  }
+
+  const accessToken = await getServerAccessToken();
+  if (!accessToken) {
+    return {
+      success: false,
+      message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       values,
     };
   }
@@ -102,6 +116,7 @@ export async function submitFeedbackAction(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(parsed.data),
     });
@@ -110,24 +125,25 @@ export async function submitFeedbackAction(
     if (!response.ok || json?.success === false) {
       return {
         success: false,
-        message: json?.message || "Không thể gửi feedback tới admin.",
+        message: json?.message || "Không thể gửi phản hồi tới admin.",
         values,
       };
     }
 
     return {
       success: true,
-      message: "Feedback đã được gửi tới admin.",
+      message: "Phản hồi đã được gửi tới admin.",
       values: {
         title: "",
         message: "",
         rating: "5",
+        type: "OTHER",
       },
     };
   } catch {
     return {
       success: false,
-      message: "Không thể kết nối backend để gửi feedback.",
+      message: "Không thể kết nối backend để gửi phản hồi.",
       values,
     };
   }

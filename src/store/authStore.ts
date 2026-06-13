@@ -12,13 +12,19 @@ export interface User {
   bankName?: string | null;
   bankAccountName?: string | null;
   sepayLinkedAt?: string | null;
+  balance?: string | number | null;
+  provider?: string | null;
+  createdAt?: string | null;
 }
 
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: User, accessToken: string, refreshToken?: string) => void;
+  hydrateFromStorage: () => void;
+  setAuth: (user: User, accessToken: string, refreshToken?: string | null) => void;
+  setUser: (user: User) => void;
   clearAuth: () => void;
   updateUser: (partial: Partial<User>) => void;
 }
@@ -64,6 +70,26 @@ function getStoredAccessToken() {
   return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
 }
 
+function getStoredRefreshToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+}
+
+function getCookieValue(name: string) {
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
+}
+
 export function setAccessTokenCookie(accessToken: string) {
   if (typeof document === "undefined") {
     return;
@@ -100,6 +126,8 @@ function setStoredAuth(user: User, accessToken: string, refreshToken?: string) {
 
   localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  localStorage.removeItem("adminAccessToken");
+  sessionStorage.removeItem("adminAccessToken");
 
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
@@ -117,20 +145,61 @@ function removeStoredAuth() {
   }
 }
 
-const storedUser = getStoredUser();
-const storedAccessToken = getStoredAccessToken();
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  accessToken: null,
+  refreshToken: null,
+  isAuthenticated: false,
+  hydrateFromStorage: () => {
+    const accessToken = getStoredAccessToken() || getCookieValue(ACCESS_TOKEN_COOKIE);
+    const refreshToken = getStoredRefreshToken();
+    const user = getStoredUser();
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: storedUser,
-  accessToken: storedAccessToken,
-  isAuthenticated: Boolean(storedAccessToken),
-  setAuth: (user, accessToken, refreshToken) => {
+    if (!accessToken) {
+      set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      });
+      return;
+    }
+
     setAccessTokenCookie(accessToken);
-    setUserRoleCookie(user.role);
-    setStoredAuth(user, accessToken, refreshToken);
+    if (user) {
+      setUserRoleCookie(user.role);
+    }
+
     set({
       user,
       accessToken,
+      refreshToken,
+      isAuthenticated: true,
+    });
+  },
+  setAuth: (user, accessToken, refreshToken = null) => {
+    setAccessTokenCookie(accessToken);
+    setUserRoleCookie(user.role);
+    setStoredAuth(user, accessToken, refreshToken ?? undefined);
+    set({
+      user,
+      accessToken,
+      refreshToken,
+      isAuthenticated: true,
+    });
+  },
+  setUser: (user) => {
+    const state = get();
+    const accessToken = state.accessToken;
+
+    if (accessToken) {
+      setStoredAuth(user, accessToken);
+    } else if (typeof window !== "undefined") {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    }
+
+    set({
+      user,
       isAuthenticated: true,
     });
   },
@@ -140,6 +209,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({
       user: null,
       accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
     });
   },

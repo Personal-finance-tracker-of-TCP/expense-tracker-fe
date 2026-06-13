@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Activity, ArrowLeft, Clock3, Database, Server, Wifi } from "lucide-react";
 
+import { getApiBaseUrl } from "@/lib/api-url";
+
 // This page uses SSR/dynamic rendering.
 export const dynamic = "force-dynamic";
 
@@ -16,14 +18,6 @@ type ApiEnvelope<T> = {
   data?: T;
   message?: string;
 };
-
-function getApiBaseUrl() {
-  return (
-    process.env.API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:5000"
-  ).replace(/\/+$/, "");
-}
 
 async function getSystemHealth() {
   const serverTime = new Date().toISOString();

@@ -70,18 +70,34 @@ export function CategoryFormModal({
   // Reset form whenever modal opens
   useEffect(() => {
     if (!isOpen) return;
-    if (editCategory) {
-      setName(editCategory.name);
-      setType((editCategory.type || "EXPENSE") as "INCOME" | "EXPENSE" | "BOTH");
-      setIcon(editCategory.icon || DEFAULT_ICON);
-      setColor(editCategory.color || DEFAULT_COLOR);
-    } else {
-      setName("");
-      setType("EXPENSE");
-      setIcon(DEFAULT_ICON);
-      setColor(DEFAULT_COLOR);
-    }
-    setNameError("");
+
+    const nextForm = editCategory
+      ? {
+          name: editCategory.name,
+          type: (editCategory.type || "EXPENSE") as "INCOME" | "EXPENSE" | "BOTH",
+          icon: editCategory.icon || DEFAULT_ICON,
+          color: editCategory.color || DEFAULT_COLOR,
+        }
+      : {
+          name: "",
+          type: "EXPENSE" as const,
+          icon: DEFAULT_ICON,
+          color: DEFAULT_COLOR,
+        };
+
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setName(nextForm.name);
+      setType(nextForm.type);
+      setIcon(nextForm.icon);
+      setColor(nextForm.color);
+      setNameError("");
+    });
+
+    return () => {
+      active = false;
+    };
   }, [isOpen, editCategory]);
 
   async function handleSubmit(e: FormEvent) {

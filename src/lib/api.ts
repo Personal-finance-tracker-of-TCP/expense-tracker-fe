@@ -11,9 +11,9 @@ import {
   setUserRoleCookie,
   useAuthStore,
 } from "@/store/authStore";
+import { getApiBaseUrl } from "@/lib/api-url";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+export const API_URL = getApiBaseUrl();
 
 const REFRESH_ENDPOINT = "/auth/refresh";
 const SESSION_EXPIRED_MESSAGE =
@@ -100,12 +100,6 @@ function isAuthEndpoint(config: Pick<AxiosRequestConfig, "baseURL" | "url">) {
     "/auth/logout",
     "/auth/forgot-password",
     "/auth/reset-password",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/refresh",
-    "/api/auth/logout",
-    "/api/auth/forgot-password",
-    "/api/auth/reset-password",
   ].includes(path);
 }
 
@@ -118,11 +112,6 @@ function shouldSkipAuthHeader(config: Pick<AxiosRequestConfig, "baseURL" | "url"
     "/auth/refresh",
     "/auth/forgot-password",
     "/auth/reset-password",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/refresh",
-    "/api/auth/forgot-password",
-    "/api/auth/reset-password",
   ].includes(path);
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { MoneyAmount } from "./MoneyAmount";
 
 type StatPillProps = {
   label: string;
@@ -20,7 +19,6 @@ export function StatPill({ label, value, type, variant = "card" }: StatPillProps
       ? "bg-blue-50 hover:bg-blue-100/80 border-blue-100"
       : "bg-rose-50 hover:bg-rose-100/80 border-rose-100";
     const textClass = isIncome ? "text-blue-700" : "text-rose-600";
-    const iconClass = isIncome ? "text-blue-500" : "text-rose-400";
     const prefix = isIncome ? "+" : "-";
 
     return (

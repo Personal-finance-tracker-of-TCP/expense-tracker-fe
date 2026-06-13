@@ -11,6 +11,7 @@ const protectedRoutes = [
   "/feedback",
   "/admin",
   "/profile",
+  "/change-password",
 ];
 
 const userOnlyRoutes = [
@@ -23,6 +24,7 @@ const userOnlyRoutes = [
   "/ai-advisor",
   "/feedback",
   "/profile",
+  "/change-password",
 ];
 
 function decodeRoleFromToken(token: string | undefined) {
@@ -56,16 +58,22 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get("access_token")?.value;
   const role = request.cookies.get("user_role")?.value || decodeRoleFromToken(token);
   const { pathname } = request.nextUrl;
-  console.log(
-    `=== Proxy executing === token: ${token ? "exists" : "none"}, path: ${pathname}`
-  );
-
   const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+    pathname.startsWith("/login") || 
+    pathname.startsWith("/register") || 
+    pathname.startsWith("/forgot-password");
+    
+  const isAuthRecoveryPage =
+    pathname.startsWith("/login") &&
+    (request.nextUrl.searchParams.has("expired") ||
+      request.nextUrl.searchParams.get("oauth") === "failed");
+
   const isProtectedRoute = protectedRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
+  
   const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  
   const isUserOnlyRoute = userOnlyRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
@@ -81,12 +89,15 @@ export function proxy(request: NextRequest) {
   }
 
   if (token && role === "ADMIN" && isUserOnlyRoute) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+    return NextResponse.redirect(new URL("/admin/platform-statistics", request.url));
   }
 
-  if (token && isAuthPage) {
+  if (token && isAuthPage && !isAuthRecoveryPage) {
     return NextResponse.redirect(
-      new URL(role === "ADMIN" ? "/admin" : "/dashboard", request.url)
+      new URL(
+        role === "ADMIN" ? "/admin/platform-statistics" : "/dashboard",
+        request.url
+      )
     );
   }
 

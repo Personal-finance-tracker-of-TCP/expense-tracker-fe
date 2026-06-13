@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
-import { MessageSquareText, Send, Star } from "lucide-react";
+import { Bug, Lightbulb, MessageSquareText, Send, Star } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -15,6 +15,7 @@ const initialFeedbackState: FeedbackActionState = {
   message: "",
   values: {
     rating: "5",
+    type: "OTHER",
   },
 };
 
@@ -23,10 +24,10 @@ function SubmitButton({ pending }: { pending: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-500 dark:hover:bg-teal-400"
     >
       <Send className="h-4 w-4" />
-      {pending ? "Đang gửi feedback..." : "Gửi feedback"}
+      {pending ? "Đang gửi phản hồi..." : "Gửi phản hồi"}
     </button>
   );
 }
@@ -42,30 +43,28 @@ export default function FeedbackPage() {
   useEffect(() => {
     if (state.success) {
       formRef.current?.reset();
-      toast.success("Feedback đã được gửi tới admin.");
+      toast.success("Phản hồi đã được gửi tới admin.");
     } else if (state.message) {
       toast.error(state.message);
     }
   }, [state.message, state.success]);
 
   return (
-    <main className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:col-span-2">
+   <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:col-span-2">
         <div className="flex items-start gap-4">
-          <span className="rounded-2xl bg-emerald-50 p-3 text-emerald-700 ring-1 ring-emerald-100">
+          <span className="rounded-2xl bg-emerald-50 p-3 text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/20">
             <MessageSquareText className="h-6 w-6" />
           </span>
           <div>
-            <p className="text-sm font-semibold uppercase text-emerald-600">
-              Server Action Demo
+            <p className="text-sm font-semibold uppercase text-emerald-600 dark:text-emerald-300">
+              Gửi cho quản trị viên
             </p>
-            <h1 className="mt-2 text-3xl font-extrabold text-slate-900">
-              Feedback
+            <h1 className="mt-2 text-3xl font-extrabold text-slate-900 dark:text-white">
+              Phản hồi
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-              Form này submit bằng Next.js Server Action. Client không gọi trực
-              tiếp REST API; action validate bằng Zod rồi gửi feedback tới
-              backend để tạo notification cho admin.
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-300">
+              Chia sẻ lỗi, ý tưởng tính năng hoặc góp ý khác để đội ngũ quản trị xử lý.
             </p>
           </div>
         </div>
@@ -74,19 +73,19 @@ export default function FeedbackPage() {
       <form
         ref={formRef}
         action={formAction}
-        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <input type="hidden" name="senderName" value={user?.name || ""} />
         <input type="hidden" name="senderEmail" value={user?.email || ""} />
 
         <div className="space-y-5">
-          <label className="block text-sm font-semibold text-slate-700">
+          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Tiêu đề
             <input
               name="title"
               defaultValue={state.success ? "" : state.values?.title || ""}
-              placeholder="Ví dụ: Góp ý về dashboard"
-              className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none ring-emerald-100 transition focus:border-emerald-400 focus:bg-white focus:ring-4"
+              placeholder="Ví dụ: Góp ý về trang tổng quan"
+              className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none ring-emerald-100 transition focus:border-emerald-400 focus:bg-white focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
             {state.errors?.title ? (
               <span className="mt-1 block text-xs font-semibold text-red-600">
@@ -95,15 +94,43 @@ export default function FeedbackPage() {
             ) : null}
           </label>
 
-          <label className="block text-sm font-semibold text-slate-700">
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Loại phản hồi
+            </legend>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {[
+                ["BUG", "Báo lỗi", Bug],
+                ["FEATURE", "Tính năng", Lightbulb],
+                ["OTHER", "Khác", MessageSquareText],
+              ].map(([value, label, Icon]) => (
+                <label
+                  key={value as string}
+                  className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-xs font-bold text-slate-600 transition-colors has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
+                >
+                  <input
+                    type="radio"
+                    name="type"
+                    value={value as string}
+                    defaultChecked={(state.values?.type || "OTHER") === value}
+                    className="sr-only"
+                  />
+                  <Icon className="h-4 w-4" />
+                  {label as string}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-200">
             Nội dung
             <textarea
               name="message"
               defaultValue={state.success ? "" : state.values?.message || ""}
-              placeholder="Bạn muốn MoneyTrack cải thiện điều gì?"
+              placeholder="Bạn muốn FinTrack cải thiện điều gì?"
               rows={6}
               maxLength={500}
-              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none ring-emerald-100 transition focus:border-emerald-400 focus:bg-white focus:ring-4"
+              className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none ring-emerald-100 transition focus:border-emerald-400 focus:bg-white focus:ring-4 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
             {state.errors?.message ? (
               <span className="mt-1 block text-xs font-semibold text-red-600">
@@ -113,14 +140,14 @@ export default function FeedbackPage() {
           </label>
 
           <fieldset>
-            <legend className="text-sm font-semibold text-slate-700">
-              Rating
+            <legend className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Đánh giá
             </legend>
             <div className="mt-2 grid grid-cols-5 gap-2">
               {[1, 2, 3, 4, 5].map((rating) => (
                 <label
                   key={rating}
-                  className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-xs font-bold text-slate-600 transition-colors has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700"
+                  className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 text-xs font-bold text-slate-600 transition-colors has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50 has-[:checked]:text-emerald-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300"
                 >
                   <input
                     type="radio"
@@ -134,11 +161,6 @@ export default function FeedbackPage() {
                 </label>
               ))}
             </div>
-            {state.errors?.rating ? (
-              <span className="mt-1 block text-xs font-semibold text-red-600">
-                {state.errors.rating}
-              </span>
-            ) : null}
           </fieldset>
         </div>
 
@@ -159,29 +181,6 @@ export default function FeedbackPage() {
         </div>
       </form>
 
-      <aside className="space-y-4">
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="font-bold text-slate-900">Checklist đồ án</h2>
-          <ul className="mt-4 space-y-3 text-sm text-slate-600">
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Có file action với &quot;use server&quot;.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Client không gọi REST API; Server Action gọi backend.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Validate title, message, rating bằng Zod.
-            </li>
-            <li className="flex gap-2">
-              <span className="mt-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Backend tạo notification type FEEDBACK cho admin.
-            </li>
-          </ul>
-        </section>
-      </aside>
     </main>
   );
 }

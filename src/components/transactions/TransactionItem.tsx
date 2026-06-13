@@ -71,24 +71,34 @@ export function TransactionItem({
 
     if (categoryIcon && categoryIcon !== "?") {
       const isEmoji = /\p{Emoji}/u.test(categoryIcon);
+
       if (isEmoji || categoryIcon.length <= 2) {
         return <span className="text-lg">{categoryIcon}</span>;
       }
     }
 
     const name = categoryName.toLowerCase();
+
     if (name.includes("lương") || name.includes("thu nhập")) {
       return <Landmark className="h-4.5 w-4.5 text-blue-500" />;
     }
+
     if (name.includes("ăn") || name.includes("uống") || name.includes("bữa")) {
       return <span className="text-base">🍴</span>;
     }
-    if (name.includes("chuyển") || name.includes("xe") || name.includes("grab")) {
+
+    if (
+      name.includes("chuyển") ||
+      name.includes("xe") ||
+      name.includes("grab")
+    ) {
       return <Car className="h-4.5 w-4.5 text-slate-500" />;
     }
+
     if (name.includes("hoàn tiền") || name.includes("refund")) {
       return <RefreshCw className="h-4.5 w-4.5 text-emerald-500" />;
     }
+
     if (isUnclassified) {
       return <HelpCircle className="h-4.5 w-4.5 text-amber-500" />;
     }
@@ -102,6 +112,7 @@ export function TransactionItem({
       : status === "EXCLUDED"
         ? "border-slate-200 bg-slate-100 text-slate-500"
         : "border-emerald-100 bg-emerald-50 text-emerald-600";
+
   const statusLabel =
     status === "UNCLASSIFIED"
       ? "Cần phân loại"
@@ -141,21 +152,29 @@ export function TransactionItem({
         >
           {renderIcon()}
         </div>
+
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-bold leading-snug text-slate-800">
               {noteText}
             </p>
+
             {isSePay ? (
-              <span className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${statusBadge}`}>
+              <span
+                className={`rounded-lg border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${statusBadge}`}
+              >
                 {statusLabel}
               </span>
             ) : null}
           </div>
+
           <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs font-semibold text-slate-400">
-            <span className={isUnclassified ? "font-bold text-amber-600/80" : ""}>
+            <span
+              className={isUnclassified ? "font-bold text-amber-600/80" : ""}
+            >
               {categoryName}
             </span>
+
             {transaction.sepayId ? (
               <span className="font-mono text-[10px] font-medium text-slate-300">
                 - {transaction.sepayId}
@@ -165,7 +184,7 @@ export function TransactionItem({
         </div>
       </div>
 
-      <div className="flex w-full shrink-0 flex-wrap items-center justify-between gap-4 border-t border-slate-100/60 pt-3 sm:w-auto sm:justify-end sm:border-0 sm:pt-0">
+      <div className="flex w-full shrink-0 flex-col gap-3 border-t border-slate-100/60 pt-3 sm:w-auto sm:min-w-[360px] sm:flex-row sm:items-center sm:justify-end sm:border-0 sm:pt-0">
         <div className="flex items-center gap-2">
           <span
             className={`rounded-lg border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
@@ -176,6 +195,7 @@ export function TransactionItem({
           >
             {isIncome ? "Thu" : "Chi"}
           </span>
+
           <span
             className={`rounded-lg border px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider ${
               isSePay
@@ -187,7 +207,7 @@ export function TransactionItem({
           </span>
         </div>
 
-        <div className="text-right sm:min-w-[110px]">
+        <div className="text-left sm:min-w-[120px] sm:text-right">
           <p
             className={`text-sm font-extrabold tabular-nums ${
               isIncome ? "text-blue-600" : "text-rose-500"
@@ -198,7 +218,7 @@ export function TransactionItem({
           </p>
         </div>
 
-        <div className="flex items-center justify-end gap-2 sm:min-w-[176px]">
+        <div className="flex w-full flex-col items-start gap-2 sm:w-[150px] sm:items-end">
           {isUnclassified ? (
             <>
               <button
@@ -207,27 +227,37 @@ export function TransactionItem({
                   onClassify(transaction);
                 }}
                 type="button"
-                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-slate-800 active:scale-95"
+                className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold leading-4 text-white shadow-sm transition-colors duration-150 hover:bg-slate-800 active:scale-95 sm:w-auto"
               >
-                <Tags className="h-3.5 w-3.5" />
-                Phân loại
+                <Tags className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-normal text-center">
+                  Phân loại
+                </span>
               </button>
+
               <button
                 onClick={(event) => {
                   event.stopPropagation();
                   onExclude(transaction);
                 }}
                 type="button"
-                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition-colors duration-150 hover:bg-slate-50 active:scale-95"
+                className="inline-flex min-h-8 w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold leading-4 text-slate-600 transition-colors duration-150 hover:bg-slate-50 active:scale-95 sm:w-auto"
               >
-                <Ban className="h-3.5 w-3.5" />
-                Bỏ qua
+                <Ban className="h-3.5 w-3.5 shrink-0" />
+                <span className="whitespace-normal text-center">Bỏ qua</span>
               </button>
             </>
           ) : (
-            <span className={`inline-flex h-8.5 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-bold ${statusBadge}`}>
-              {isExcluded ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              {statusLabel}
+            <span
+              className={`inline-flex min-h-8 max-w-[140px] items-center justify-center gap-1.5 rounded-xl border px-3 py-1.5 text-center text-xs font-bold leading-4 whitespace-normal ${statusBadge}`}
+            >
+              {isExcluded ? (
+                <Ban className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+              )}
+
+              <span className="break-words">{statusLabel}</span>
             </span>
           )}
         </div>

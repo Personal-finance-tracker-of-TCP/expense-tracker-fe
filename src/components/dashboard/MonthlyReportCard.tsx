@@ -30,6 +30,47 @@ type MonthlyReportCardProps = {
   year: number;
 };
 
+type ReportTooltipPayload = {
+  value?: number | string;
+  payload?: {
+    name?: string;
+  };
+};
+
+type ReportTooltipProps = {
+  active?: boolean;
+  payload?: ReportTooltipPayload[];
+};
+
+const vndFormatter = new Intl.NumberFormat("vi-VN", {
+  style: "currency",
+  currency: "VND",
+});
+
+function MonthlyReportTooltip({ active, payload }: ReportTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white/95 p-3.5 shadow-xl backdrop-blur-sm text-xs font-semibold space-y-1.5">
+      <p className="text-slate-500 font-bold mb-1 border-b border-slate-100 pb-1">
+        Ngày {payload[0]?.payload?.name || "-"}
+      </p>
+      <p className="text-blue-600 flex items-center justify-between gap-4">
+        <span>Thu nhập:</span>
+        <span className="font-extrabold tabular-nums">
+          {vndFormatter.format(Number(payload[0]?.value) || 0)}
+        </span>
+      </p>
+      <p className="text-rose-500 flex items-center justify-between gap-4">
+        <span>Chi tiêu:</span>
+        <span className="font-extrabold tabular-nums">
+          {vndFormatter.format(Number(payload[1]?.value) || 0)}
+        </span>
+      </p>
+    </div>
+  );
+}
+
 export function MonthlyReportCard({
   transactions,
   totalIncome,
@@ -88,36 +129,6 @@ export function MonthlyReportCard({
   }, [transactions, month, year]);
 
   const hasData = transactions.length > 0;
-
-  // Custom Tooltip component for Recharts
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-xl border border-slate-100 bg-white/95 p-3.5 shadow-xl backdrop-blur-sm text-xs font-semibold space-y-1.5">
-          <p className="text-slate-500 font-bold mb-1 border-b border-slate-100 pb-1">Ngày {payload[0].payload.name}</p>
-          <p className="text-blue-600 flex items-center justify-between gap-4">
-            <span>Thu nhập:</span>
-            <span className="font-extrabold tabular-nums">
-              {new Intl.NumberFormat("vi-VN", {
-                style: "currency",
-                currency: "VND",
-              }).format(payload[0].value)}
-            </span>
-          </p>
-          <p className="text-rose-500 flex items-center justify-between gap-4">
-            <span>Chi tiêu:</span>
-            <span className="font-extrabold tabular-nums">
-              {new Intl.NumberFormat("vi-VN", {
-                style: "currency",
-                currency: "VND",
-              }).format(payload[1].value)}
-            </span>
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-6">
@@ -189,7 +200,7 @@ export function MonthlyReportCard({
                   return value;
                 }}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<MonthlyReportTooltip />} />
               <Area
                 type="monotone"
                 dataKey="Thu nhập"

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, BarChart3, Database, ReceiptText, Tags, Users } from "lucide-react";
 
+import { getApiBaseUrl } from "@/lib/api-url";
+
 // This page uses ISR with revalidate = 60.
 export const revalidate = 60;
 
@@ -18,14 +20,6 @@ type ApiEnvelope<T> = {
   data?: T;
   message?: string;
 };
-
-function getApiBaseUrl() {
-  return (
-    process.env.API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:5000"
-  ).replace(/\/+$/, "");
-}
 
 async function getStatistics() {
   try {
