@@ -13,7 +13,7 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type ApiEnvelope, type AuthPayload, normalizeUser } from "@/lib/auth";
-import { getPostLoginRedirect } from "@/lib/auth-redirect";
+
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -80,9 +80,12 @@ function LoginForm() {
       });
 
       const authData = response.data.data;
-      const user = normalizeUser(authData.user);
-      setAuth(user, authData.accessToken, authData.refreshToken);
-      router.replace(getPostLoginRedirect(user.role, requestedReturnUrl));
+      setAuth(
+        normalizeUser(authData.user),
+        authData.accessToken,
+        authData.refreshToken
+      );
+      router.push(authData.user.role === "ADMIN" ? "/admin/platform-statistics" : "/dashboard");
     } catch (error) {
       const axiosError = error as AxiosError<ApiErrorResponse>;
       const responseMessage = axiosError.response?.data?.message;

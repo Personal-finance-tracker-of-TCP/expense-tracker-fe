@@ -1,6 +1,8 @@
 import axios from "axios";
 
+import type { ApiUser, User } from "@/lib/auth";
 import api, { API_URL } from "@/lib/api";
+import { normalizeUser } from "@/lib/auth";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -29,12 +31,7 @@ export function getAccessToken(options?: { admin?: boolean }) {
     return null;
   }
 
-  if (options?.admin) {
-    return (
-      localStorage.getItem("adminAccessToken") ||
-      localStorage.getItem("accessToken")
-    );
-  }
+  void options;
   return localStorage.getItem("accessToken");
 }
 
@@ -74,11 +71,6 @@ function isAuthPath(path: string) {
     "/auth/refresh",
     "/auth/forgot-password",
     "/auth/reset-password",
-    "/api/auth/login",
-    "/api/auth/register",
-    "/api/auth/refresh",
-    "/api/auth/forgot-password",
-    "/api/auth/reset-password",
   ].includes(cleanPathname);
 }
 
@@ -203,6 +195,39 @@ export function toNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
+export function normalizeBalance(value: unknown) {
+  return toNumber(value);
+}
+
+export async function getCurrentUser() {
+  const user = await authFetch<ApiUser>("/api/users/me");
+  return normalizeUser(user);
+}
+
+export async function updateUserBalance(balance: number) {
+  const result = await authFetch<{
+    user?: ApiUser;
+    balance?: string | number | null;
+  }>("/api/users/me/balance", {
+    method: "PATCH",
+    body: JSON.stringify({ balance }),
+  });
+
+  const user = result.user ? normalizeUser(result.user) : null;
+  const normalizedBalance = normalizeBalance(result.balance ?? user?.balance ?? balance);
+
+  return {
+    user: user
+      ? ({
+          ...user,
+          balance: normalizedBalance,
+        } satisfies User)
+      : null,
+    balance: normalizedBalance,
+  };
+}
+
 export function getCurrentDemoPeriod() {
-  return { month: 6, year: 2026 };
+  const now = new Date();
+  return { month: now.getMonth() + 1, year: now.getFullYear() };
 }

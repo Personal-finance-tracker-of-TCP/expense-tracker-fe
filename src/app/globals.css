@@ -177,3 +177,17 @@
 [data-slot="input"] {
   border-radius: 9999px;
 }
+
+
+@keyframes aiAttention {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.03);
+  }
+}
+
+.ai-attention {
+  animation: aiAttention 1.4s ease-in-out infinite;
+}

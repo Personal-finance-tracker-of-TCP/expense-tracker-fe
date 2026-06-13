@@ -126,6 +126,8 @@ function setStoredAuth(user: User, accessToken: string, refreshToken?: string) {
 
   localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+  localStorage.removeItem("adminAccessToken");
+  sessionStorage.removeItem("adminAccessToken");
 
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);

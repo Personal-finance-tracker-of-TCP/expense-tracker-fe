@@ -110,7 +110,6 @@ export function proxy(request: NextRequest) {
   const role =
     tokenState.role || normalizeRole(request.cookies.get("user_role")?.value);
   const { pathname } = request.nextUrl;
-
   const isAuthPage =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
@@ -152,8 +151,8 @@ export function proxy(request: NextRequest) {
     return tokenState.isPresent ? nextWithClearedAuthCookies() : NextResponse.next();
   }
 
-  if (tokenCanAuthenticate && isAdminRoute && role !== "ADMIN") {
-    return NextResponse.redirect(new URL(USER_HOME, request.url));
+  if (token && role === "ADMIN" && isUserOnlyRoute) {
+    return NextResponse.redirect(new URL("/admin/platform-statistics", request.url));
   }
 
   if (tokenCanAuthenticate && role === "ADMIN" && isUserOnlyRoute) {
@@ -162,7 +161,10 @@ export function proxy(request: NextRequest) {
 
   if (tokenCanAuthenticate && isAuthPage && !isAuthRecoveryPage) {
     return NextResponse.redirect(
-      new URL(role === "ADMIN" ? ADMIN_HOME : USER_HOME, request.url)
+      new URL(
+        role === "ADMIN" ? "/admin/platform-statistics" : "/dashboard",
+        request.url
+      )
     );
   }
 

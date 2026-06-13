@@ -4,14 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-	ArrowLeftRight,
-	BarChart2,
-	LayoutDashboard,
-	PiggyBank,
-	Sparkles,
-	Tag,
+  LayoutDashboard,
+  ArrowLeftRight,
+  Tag,
+  BarChart2,
+  Sparkles,
+  MessageSquareText,
 	UserRound,
 	Wallet,
+	PiggyBank,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -22,13 +23,14 @@ type SidebarProps = {
 };
 
 const navigationItems = [
-	{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tone: "bg-teal-400" },
-	{ href: "/transactions", label: "Transactions", icon: ArrowLeftRight, tone: "bg-sky-400" },
-	{ href: "/categories", label: "Categories", icon: Tag, tone: "bg-amber-400" },
-	{ href: "/budgets", label: "Budget", icon: PiggyBank, tone: "bg-emerald-400" },
-	{ href: "/reports", label: "Reports", icon: BarChart2, tone: "bg-indigo-400" },
-	{ href: "/ai-advisor", label: "AI Advisor", icon: Sparkles, tone: "bg-fuchsia-400" },
-	{ href: "/profile", label: "Profile", icon: UserRound, tone: "bg-rose-400" },
+	{ href: "/dashboard", label: "Tổng quan", icon: LayoutDashboard, tone: "bg-teal-400" },
+	{ href: "/transactions", label: "Giao dịch", icon: ArrowLeftRight, tone: "bg-sky-400" },
+	{ href: "/categories", label: "Danh mục", icon: Tag, tone: "bg-amber-400" },
+	{ href: "/budget", label: "Ngân sách", icon: PiggyBank, tone: "bg-emerald-400" },
+	{ href: "/reports", label: "Báo cáo", icon: BarChart2, tone: "bg-indigo-400" },
+	{ href: "/ai-advisor", label: "Tư vấn AI", icon: Sparkles, tone: "bg-fuchsia-400" },
+	{ href: "/feedback", label: "Phản hồi", icon: MessageSquareText, tone: "bg-violet-400" },
+	{ href: "/profile", label: "Hồ sơ", icon: UserRound, tone: "bg-rose-400" },
 ];
 
 export function Sidebar({ className }: SidebarProps) {
@@ -85,7 +87,7 @@ export function Sidebar({ className }: SidebarProps) {
 						FINTRACK
 					</p>
 					<p className="mt-0.5 text-xs font-medium text-teal-100/75">
-						Smart finance hub
+						Trung tâm tài chính cá nhân
 					</p>
 				</div>
 			</div>

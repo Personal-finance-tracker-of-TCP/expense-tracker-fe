@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
-  RefreshCcw,
   BrainCircuit,
   Sparkles,
   AlertTriangle,
@@ -172,21 +171,43 @@ function normalizeAdviceTexts(rawValue: unknown): string[] {
     .filter(Boolean);
 }
 
-async function fetchAdvisorData(month: number, year: number) {
-  const [adviceResult, budgetList, historyData] = await Promise.all([
-    authFetch<AdviceResponse>("/api/ai/advice", {
-      method: "POST",
-      body: JSON.stringify({ month, year }),
-    }),
+function getAdviceCacheKey(month: number, year: number) {
+  return `ai-advice:${year}:${month}`;
+}
+
+function readCachedAdvice(month: number, year: number) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(getAdviceCacheKey(month, year));
+    return raw ? (JSON.parse(raw) as AdviceResponse) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedAdvice(month: number, year: number, value: AdviceResponse) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(getAdviceCacheKey(month, year), JSON.stringify(value));
+}
+
+async function fetchAdvisorBaseData() {
+  const [budgetList, historyData] = await Promise.all([
     authFetch<Budget[]>("/api/budgets"),
     authFetch<AiAdviceLog[]>("/api/ai/history").catch(() => []),
   ]);
 
   return {
-    adviceResult,
     budgetList: budgetList || [],
     historyData: historyData || [],
   };
+}
+
+async function requestAdvisorAdvice(month: number, year: number) {
+  return authFetch<AdviceResponse>("/api/ai/advice", {
+    method: "POST",
+    body: JSON.stringify({ month, year }),
+  });
 }
 
 export default function AiAdvisorPage() {
@@ -203,17 +224,20 @@ export default function AiAdvisorPage() {
   // ─── Data Fetching ─────────────────────────────────────────────────────────
 
   async function loadAllData(isRefresh = false) {
-    if (isRefresh) {
-      setUpdating(true);
-      setError(null);
-    }
+    setUpdating(true);
+    setError(null);
 
     try {
-      const { adviceResult, budgetList, historyData } = await fetchAdvisorData(month, year);
+      const adviceResult = await requestAdvisorAdvice(month, year);
 
       setAdvice(adviceResult);
-      setBudgets(budgetList);
-      setHistoryLogs(historyData);
+      writeCachedAdvice(month, year, adviceResult);
+
+      if (isRefresh) {
+        const { budgetList, historyData } = await fetchAdvisorBaseData();
+        setBudgets(budgetList);
+        setHistoryLogs(historyData);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể kết nối dịch vụ AI");
       console.error(err);
@@ -228,10 +252,10 @@ export default function AiAdvisorPage() {
 
     async function loadSelectedPeriod() {
       try {
-        const { adviceResult, budgetList, historyData } = await fetchAdvisorData(month, year);
+        const { budgetList, historyData } = await fetchAdvisorBaseData();
         if (ignore) return;
 
-        setAdvice(adviceResult);
+        setAdvice(readCachedAdvice(month, year));
         setBudgets(budgetList);
         setHistoryLogs(historyData);
       } catch (err) {
@@ -533,15 +557,28 @@ export default function AiAdvisorPage() {
             </button>
           </div>
 
-          {/* Refresh Button */}
           <button
             onClick={() => loadAllData(true)}
             disabled={updating}
             type="button"
-            className="h-10 inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 text-xs font-bold text-slate-600 transition-all active:scale-95 disabled:opacity-60"
+            className="
+              relative inline-flex h-11 items-center gap-2 rounded-xl
+              border border-emerald-300/70
+              bg-gradient-to-r from-emerald-500 to-teal-500
+              px-4 text-sm font-semibold text-white
+              shadow-md shadow-emerald-500/25
+              transition-all duration-300
+              hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-500/35
+              active:translate-y-0 active:scale-95
+              disabled:cursor-not-allowed disabled:opacity-60
+            "
           >
-            <RefreshCcw className={`h-4 w-4 text-slate-500 ${updating ? "animate-spin" : ""}`} />
-            {updating ? "Đang cập nhật..." : "Làm mới gợi ý"}
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/80 opacity-75"></span>
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white"></span>
+            </span>
+
+            {updating ? "Đang xử lý..." : "Phân tích với AI"}
           </button>
         </div>
       </section>
@@ -853,38 +890,7 @@ export default function AiAdvisorPage() {
         </div>
       </section>
 
-      {/* ── Muốn hỏi sâu hơn ── */}
-      <section className="px-2 mt-4">
-        <div className="rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-2.5 mb-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 shadow-inner">
-              <MessageSquare className="h-4.5 w-4.5" />
-            </span>
-            <h2 className="text-sm font-extrabold text-slate-800">Muốn hỏi sâu hơn?</h2>
-          </div>
-          
-          <p className="text-xs text-slate-500 font-semibold mb-4 leading-relaxed">
-            Bạn có thể hỏi thêm AI bằng chatbot nổi ở góc màn hình. Hãy gửi câu hỏi nhanh từ đây.
-          </p>
-
-          <form onSubmit={handleAskSubmit} className="flex gap-3 max-w-2xl">
-            <input
-              type="text"
-              value={askInput}
-              onChange={(e) => setAskInput(e.target.value)}
-              placeholder="Ví dụ: Tôi nên cắt giảm khoản nào trước?"
-              className="flex-1 h-11 px-4 rounded-2xl border border-slate-200/80 text-xs font-semibold outline-none ring-slate-100 focus:border-slate-300 focus:ring-4 transition-all duration-200"
-            />
-            <button
-              type="submit"
-              className="h-11 inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-extrabold shadow-md shadow-emerald-500/10 px-6 transition-all active:scale-95 shrink-0 cursor-pointer"
-            >
-              <Sparkles className="h-4 w-4" />
-              Mở chatbot AI
-            </button>
-          </form>
-        </div>
-      </section>
+      
 
       {/* ── AI Analysis History ── */}
       <section className="px-2 mt-4">

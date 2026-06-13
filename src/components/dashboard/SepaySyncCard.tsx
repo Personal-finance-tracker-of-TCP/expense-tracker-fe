@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Zap,
 } from "lucide-react";
+
 import { EmptyState } from "./EmptyState";
 
 type SepayLog = {
@@ -28,12 +29,14 @@ type SepaySyncCardProps = {
   bankAccountNumber: string | null;
   sepayLinkedAt?: string | null;
   logs: SepayLog[];
+  onSkip?: () => void;
 };
 
 type CopyTarget = "bankAccountNumber" | "sepayCode" | null;
 
 const SANDBOX_DESCRIPTION =
   "Tài khoản sandbox dùng để mô phỏng tài khoản ngân hàng trong môi trường BankHub Sandbox. Khi phát sinh giao dịch sandbox trên tài khoản này, hệ thống sẽ tự động đồng bộ giao dịch.";
+const SEPAY_SKIP_KEY = "fintrack-sepay-sandbox-skip";
 
 function formatVietnamDateTime(value?: string | null) {
   if (!value) return "-";
@@ -49,13 +52,64 @@ function formatVietnamDateTime(value?: string | null) {
   }).format(new Date(value));
 }
 
+function formatLogDate(dateStr?: string) {
+  if (!dateStr) return "-";
+
+  try {
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+function getStatusBadge(status: SepayLog["status"]) {
+  switch (status) {
+    case "PROCESSED":
+      return {
+        label: "Đã xử lý",
+        classes: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      };
+    case "DUPLICATE":
+      return {
+        label: "Trùng lặp",
+        classes: "bg-amber-50 text-amber-600 border-amber-100",
+      };
+    case "FAILED":
+      return {
+        label: "Lỗi",
+        classes: "bg-rose-50 text-rose-600 border-rose-100",
+      };
+    case "UNMATCHED":
+      return {
+        label: "Không khớp",
+        classes: "bg-slate-50 text-slate-500 border-slate-200",
+      };
+    case "PENDING":
+    default:
+      return {
+        label: "Đang chờ",
+        classes: "bg-blue-50 text-blue-600 border-blue-100",
+      };
+  }
+}
+
 export function SepaySyncCard({
   sepayCode,
   bankAccountNumber,
   sepayLinkedAt,
   logs,
+  onSkip,
 }: SepaySyncCardProps) {
   const [copied, setCopied] = useState<CopyTarget>(null);
+  const [skipped, setSkipped] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(SEPAY_SKIP_KEY) === "1"
+  );
   const isLinked = Boolean(bankAccountNumber);
 
   const handleCopy = (target: Exclude<CopyTarget, null>, text?: string | null) => {
@@ -67,50 +121,18 @@ export function SepaySyncCard({
     });
   };
 
-  const getStatusBadge = (status: SepayLog["status"]) => {
-    switch (status) {
-      case "PROCESSED":
-        return {
-          label: "Đã xử lý",
-          classes: "bg-emerald-50 text-emerald-600 border-emerald-100",
-        };
-      case "DUPLICATE":
-        return {
-          label: "Trùng lặp",
-          classes: "bg-amber-50 text-amber-600 border-amber-100",
-        };
-      case "FAILED":
-        return {
-          label: "Lỗi",
-          classes: "bg-rose-50 text-rose-600 border-rose-100",
-        };
-      case "UNMATCHED":
-        return {
-          label: "Không khớp",
-          classes: "bg-slate-50 text-slate-500 border-slate-200",
-        };
-      case "PENDING":
-      default:
-        return {
-          label: "Đang chờ",
-          classes: "bg-blue-50 text-blue-600 border-blue-100",
-        };
+  const handleSkip = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(SEPAY_SKIP_KEY, "1");
     }
+
+    setSkipped(true);
+    onSkip?.();
   };
 
-  const formatLogDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-
-    try {
-      const date = new Date(dateStr);
-      const day = date.getDate().toString().padStart(2, "0");
-      const month = (date.getMonth() + 1).toString().padStart(2, "0");
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  if (!isLinked && skipped) {
+    return null;
+  }
 
   if (!isLinked) {
     return (
@@ -129,6 +151,18 @@ export function SepaySyncCard({
           description={SANDBOX_DESCRIPTION}
           icon={<Zap className="h-6 w-6 text-slate-300" />}
         />
+        <div className="rounded-2xl border border-teal-100 bg-teal-50/70 p-3">
+          <p className="text-xs font-semibold leading-5 text-teal-800">
+            Bạn có thể thiết lập sau trong phần Hồ sơ/Cài đặt
+          </p>
+          <button
+            type="button"
+            onClick={handleSkip}
+            className="mt-3 inline-flex h-9 items-center justify-center rounded-full border border-teal-200 bg-white px-4 text-sm font-bold text-teal-800 transition-colors hover:bg-teal-50"
+          >
+            Bỏ qua
+          </button>
+        </div>
       </section>
     );
   }
