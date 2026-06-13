@@ -311,7 +311,7 @@ export default function BankHubSandboxPage() {
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                   Chỉ user có BankHub XID mới tạo được giao dịch sandbox qua
-                  SePay. MoneyTrack chỉ tạo giao dịch, số dư và thông báo sau
+                  SePay. FinTrack chỉ tạo giao dịch, số dư và thông báo sau
                   khi webhook SePay gọi về hệ thống.
                 </p>
               </div>
@@ -352,7 +352,7 @@ export default function BankHubSandboxPage() {
             <div>
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-slate-700">
-                  User trong MoneyTrack
+                  User trong FinTrack
                 </p>
                 <span className="text-xs font-semibold text-slate-400">
                   {users.filter((user) => hasBankhubXid(user)).length}/
@@ -674,7 +674,7 @@ export default function BankHubSandboxPage() {
             {!result ? (
               <p className="mt-3 text-sm leading-6 text-slate-500">
                 Sau khi submit thành công, trang chỉ hiển thị phản hồi từ
-                BankHub. Giao dịch trong MoneyTrack sẽ được tạo bởi webhook
+                BankHub. Giao dịch trong FinTrack sẽ được tạo bởi webhook
                 SePay.
               </p>
             ) : (

@@ -100,7 +100,7 @@ export default function FeedbackPage() {
             <textarea
               name="message"
               defaultValue={state.success ? "" : state.values?.message || ""}
-              placeholder="Bạn muốn MoneyTrack cải thiện điều gì?"
+              placeholder="Bạn muốn FinTrack cải thiện điều gì?"
               rows={6}
               maxLength={500}
               className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none ring-emerald-100 transition focus:border-emerald-400 focus:bg-white focus:ring-4"

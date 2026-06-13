@@ -104,7 +104,7 @@ export default async function StatisticsPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold uppercase text-emerald-600">
-                    MoneyTrack Public
+                    FinTrack Public
                   </p>
                   <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600">
                     ISR • cập nhật mỗi 60 giây
@@ -114,7 +114,7 @@ export default async function StatisticsPage() {
                   Thống kê nền tảng
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                  Dữ liệu tổng hợp public của MoneyTrack, chỉ hiển thị số liệu
+                  Dữ liệu tổng hợp public của FinTrack, chỉ hiển thị số liệu
                   an toàn và không chứa thông tin cá nhân.
                 </p>
               </div>

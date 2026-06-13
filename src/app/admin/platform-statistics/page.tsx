@@ -28,6 +28,8 @@ type ApiEnvelope<T> = {
   message?: string;
 };
 
+const ADMIN_STATISTICS_PATH = "/admin/platform-statistics";
+
 function getApiBaseUrl() {
   return (
     process.env.API_BASE_URL ||
@@ -48,7 +50,9 @@ async function getPlatformStatistics(token: string) {
   );
 
   if (response.status === 401) {
-    redirect("/login?from=/admin/platform-statistics");
+    redirect(
+      `/login?expired=1&returnUrl=${encodeURIComponent(ADMIN_STATISTICS_PATH)}`
+    );
   }
 
   if (response.status === 403) {
@@ -90,7 +94,7 @@ export default async function AdminPlatformStatisticsPage() {
   const token = cookieStore.get("access_token")?.value;
 
   if (!token) {
-    redirect("/login?from=/admin/platform-statistics");
+    redirect(`/login?returnUrl=${encodeURIComponent(ADMIN_STATISTICS_PATH)}`);
   }
 
   const { data, error } = await getPlatformStatistics(token);
@@ -129,7 +133,7 @@ export default async function AdminPlatformStatisticsPage() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-semibold uppercase text-emerald-600">
-                    MoneyTrack Admin
+                    FinTrack Admin
                   </p>
                 </div>
                 <h1 className="mt-2 text-3xl font-extrabold text-slate-900">
