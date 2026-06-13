@@ -119,7 +119,7 @@ export default function BankHubSandboxPage() {
   const [selectedUserId, setSelectedUserId] = useState("");
   const [transferType, setTransferType] = useState<TransferType>("credit");
   const [amount, setAmount] = useState(formatAmountInput("1000000"));
-  const [content, setContent] = useState("Giao dịch sandbox MoneyTrack");
+  const [content, setContent] = useState("Giao dịch sandbox FinTrack");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

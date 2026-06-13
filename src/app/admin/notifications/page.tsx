@@ -106,7 +106,7 @@ export default function AdminNotificationsPage() {
             </span>
             <div>
               <p className="text-sm font-semibold uppercase text-teal-700 dark:text-teal-300">
-                MoneyTrack Admin
+                FinTrack Admin
               </p>
               <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 dark:text-white">
                 Các thông báo
