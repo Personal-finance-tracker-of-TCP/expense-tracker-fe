@@ -25,7 +25,7 @@ const navigationItems = [
 	{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tone: "bg-teal-400" },
 	{ href: "/transactions", label: "Transactions", icon: ArrowLeftRight, tone: "bg-sky-400" },
 	{ href: "/categories", label: "Categories", icon: Tag, tone: "bg-amber-400" },
-	{ href: "/budget", label: "Budget", icon: PiggyBank, tone: "bg-emerald-400" },
+	{ href: "/budgets", label: "Budget", icon: PiggyBank, tone: "bg-emerald-400" },
 	{ href: "/reports", label: "Reports", icon: BarChart2, tone: "bg-indigo-400" },
 	{ href: "/ai-advisor", label: "AI Advisor", icon: Sparkles, tone: "bg-fuchsia-400" },
 	{ href: "/profile", label: "Profile", icon: UserRound, tone: "bg-rose-400" },
