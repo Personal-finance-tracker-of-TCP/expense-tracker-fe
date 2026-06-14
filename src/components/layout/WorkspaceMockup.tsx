@@ -47,6 +47,7 @@ type WorkspaceMockupProps = {
   sideTitle: string;
   sideDescription: string;
   sideItems: SideItem[];
+  sideEmptyMessage?: string;
   searchValue?: string;
   searchPlaceholder?: string;
   onSearchChange?: ChangeEventHandler<HTMLInputElement>;
@@ -74,6 +75,7 @@ export function WorkspaceMockup({
   sideTitle,
   sideDescription,
   sideItems,
+  sideEmptyMessage = "Chưa có dữ liệu.",
   searchValue,
   searchPlaceholder = "Tìm kiếm...",
   onSearchChange,
@@ -245,7 +247,7 @@ export function WorkspaceMockup({
                               row.tone ?? "bg-teal-50 text-teal-700"
                             )}
                           >
-                            {row.status ?? "Active"}
+                            {row.status ?? "Hoạt động"}
                           </span>
                         </td>
                         {hasRowActions ? (
@@ -282,40 +284,46 @@ export function WorkspaceMockup({
           </p>
 
           <div className="mt-6 max-h-[420px] space-y-4 overflow-y-auto pr-1">
-            {sideItems.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[1.5rem] border border-teal-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-950"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-slate-950 dark:text-white">
-                      {item.label}
-                    </p>
-                    {item.helper ? (
-                      <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">
-                        {item.helper}
+            {sideItems.length > 0 ? (
+              sideItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-[1.5rem] border border-teal-100 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-950"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-slate-950 dark:text-white">
+                        {item.label}
                       </p>
-                    ) : null}
+                      {item.helper ? (
+                        <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">
+                          {item.helper}
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className="shrink-0 text-sm font-black text-teal-700">
+                      {item.value}
+                    </p>
                   </div>
-                  <p className="shrink-0 text-sm font-black text-teal-700">
-                    {item.value}
-                  </p>
-                </div>
 
-                {typeof item.progress === "number" ? (
-                  <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-                    <div
-                      className={cn(
-                        "h-full rounded-full",
-                        item.tone ?? "bg-teal-500"
-                      )}
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-                ) : null}
+                  {typeof item.progress === "number" ? (
+                    <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                      <div
+                        className={cn(
+                          "h-full rounded-full",
+                          item.tone ?? "bg-teal-500"
+                        )}
+                        style={{ width: `${item.progress}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[1.5rem] border border-dashed border-teal-100 bg-slate-50/80 p-4 text-sm font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                {sideEmptyMessage}
               </div>
-            ))}
+            )}
           </div>
         </aside>
       </div>

@@ -2,19 +2,14 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   BarChart2,
   Download,
   FileSpreadsheet,
-  Loader2,
   PieChart,
-  RefreshCw,
   TrendingDown,
   TrendingUp,
   X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { toast } from "sonner";
 
 import { WorkspaceMockup } from "@/components/layout/WorkspaceMockup";
 import { formatCurrencyVND } from "@/lib/finance";
@@ -56,8 +51,24 @@ function pickText(item: Record<string, unknown>) {
 
 function pickAmount(item: Record<string, unknown>) {
   return toNumber(
-    item.amount ?? item.totalAmount ?? item.totalExpense ?? item.value ?? 0
+    item.amount ??
+      item.total ??
+      item.totalAmount ??
+      item.totalExpense ??
+      item.value ??
+      0
   );
+}
+
+function pickPeriodText(item: Record<string, unknown>) {
+  const month = toNumber(item.month);
+  const year = toNumber(item.year);
+
+  if (month > 0 && year > 0) {
+    return `Tháng ${month}/${year}`;
+  }
+
+  return String(item.period ?? item.label ?? "Kỳ báo cáo");
 }
 
 export default function ReportsPage() {
@@ -132,6 +143,29 @@ export default function ReportsPage() {
     () => chart?.categoryBreakdown || [],
     [chart]
   );
+  const chartRows = useMemo(
+    () =>
+      (chart?.chartData || []).map((item) => {
+        const income = toNumber(item.income ?? item.totalIncome);
+        const expense = toNumber(item.expense ?? item.totalExpense);
+        const balance = income - expense;
+
+        return {
+          cells: [
+            pickPeriodText(item),
+            formatCurrencyVND(income),
+            formatCurrencyVND(expense),
+            `${balance >= 0 ? "+" : "-"}${formatCurrencyVND(Math.abs(balance))}`,
+          ],
+          status: balance >= 0 ? "Thặng dư" : "Bội chi",
+          tone:
+            balance >= 0
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-rose-200 bg-rose-50 text-rose-700",
+        };
+      }),
+    [chart]
+  );
   const totalCategoryAmount = categoryBreakdown.reduce(
     (sum, item) => sum + pickAmount(item),
     0
@@ -173,9 +207,9 @@ export default function ReportsPage() {
             tone: "from-amber-400 to-orange-500",
           },
         ]}
-        tableTitle="Lịch sử báo cáo"
-        tableColumns={["Tên báo cáo", "Chu kỳ", "Định dạng", "Ngày tạo"]}
-        tableRows={[]}
+        tableTitle="Thu chi 6 tháng gần nhất"
+        tableColumns={["Chu kỳ", "Thu nhập", "Chi tiêu", "Chênh lệch"]}
+        tableRows={chartRows}
         sideTitle="Cơ cấu chi tiêu"
         sideDescription="Tỷ trọng danh mục trong kỳ hiện tại."
         sideItems={
@@ -194,17 +228,12 @@ export default function ReportsPage() {
                   tone: "bg-teal-500",
                 };
               })
-            : [
-                {
-                  label: "Chưa có dữ liệu",
-                  value: "0%",
-                  helper: loading
-                    ? "Đang tải biểu đồ"
-                    : "Chưa có chi tiêu theo danh mục",
-                  progress: 0,
-                  tone: "bg-teal-500",
-                },
-              ]
+            : []
+        }
+        sideEmptyMessage={
+          loading
+            ? "Đang tải cơ cấu chi tiêu..."
+            : "Chưa có chi tiêu theo danh mục trong kỳ này."
         }
         bottomCards={[
           {
@@ -229,8 +258,8 @@ export default function ReportsPage() {
         onAction={() => setIsExportModalOpen(true)}
         actionDisabled={loading}
         actionLoading={exporting}
-        searchPlaceholder="Tìm báo cáo..."
-        emptyMessage="Chưa có lịch sử báo cáo. Bạn có thể xuất báo cáo PDF/Excel để tải về."
+        searchPlaceholder="Dữ liệu tổng hợp từ báo cáo"
+        emptyMessage={loading ? "Đang tải dữ liệu báo cáo..." : "Chưa có dữ liệu thu chi trong kỳ báo cáo."}
       >
         {error ? (
           <div className="rounded-3xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
