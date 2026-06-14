@@ -9,7 +9,6 @@ import {
   Sparkles,
   AlertTriangle,
   X,
-  MessageSquare,
   AlertCircle,
   ArrowRight,
   Bot,
@@ -219,7 +218,6 @@ export default function AiAdvisorPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [askInput, setAskInput] = useState("");
 
   // ─── Data Fetching ─────────────────────────────────────────────────────────
 
@@ -279,6 +277,7 @@ export default function AiAdvisorPage() {
 
   // ─── Derived Data ─────────────────────────────────────────────────────────
 
+  const hasAdvice = Boolean(advice);
   const unclassifiedCount = advice?.summary?.unclassifiedTransactionCount ?? 0;
 
   // Filter budgets that belong to the selected period and are >= 80% used
@@ -293,6 +292,15 @@ export default function AiAdvisorPage() {
 
   // Financial Health Status
   const healthStatus = useMemo(() => {
+    if (!hasAdvice) {
+      return {
+        label: "Chưa phân tích",
+        colorClass: "text-slate-600 bg-slate-50 border-slate-100",
+        dotColor: "bg-slate-400",
+        desc: "Chưa có kết quả phân tích cho kỳ này. Bấm “Phân tích với AI” để hệ thống tổng hợp dữ liệu và đưa ra đánh giá.",
+      };
+    }
+
     const risk = advice?.riskLevel || "LOW";
     if (risk === "HIGH" || (advice?.summary?.savings ?? 0) < 0) {
       return {
@@ -316,7 +324,7 @@ export default function AiAdvisorPage() {
       dotColor: "bg-emerald-500",
       desc: "Sức khỏe tài chính tốt. Các khoản chi tiêu đều nằm trong tầm kiểm soát và tỷ lệ tiết kiệm đạt mức kỳ vọng.",
     };
-  }, [advice, unclassifiedCount, warningBudgets]);
+  }, [advice, hasAdvice, unclassifiedCount, warningBudgets]);
 
   // Suggested saving target (20% of income rule-based fallback, or AI-suggested rate)
   const suggestedSavingGoal = useMemo(() => {
@@ -328,6 +336,8 @@ export default function AiAdvisorPage() {
 
   // Key findings with dynamic status color mapping (Rule-based Fallback when AI Insights are empty)
   const parsedInsights = useMemo(() => {
+    if (!hasAdvice) return [];
+
     const rawInsights = normalizeInsights(advice?.insights);
     if (rawInsights.length > 0) {
       return rawInsights.map((insight) => {
@@ -393,10 +403,12 @@ export default function AiAdvisorPage() {
       }
     }
     return list;
-  }, [advice, unclassifiedCount, month, year]);
+  }, [advice, hasAdvice, unclassifiedCount, month, year]);
 
   // Action items priority list (Rule-based Fallback when Suggestions are empty)
   const parsedSuggestions = useMemo(() => {
+    if (!hasAdvice) return [];
+
     const rawSuggestions = normalizeAdviceTexts(advice?.recommendations ?? advice?.suggestions);
     if (rawSuggestions.length > 0) {
       return rawSuggestions.slice(0, 5);
@@ -431,7 +443,7 @@ export default function AiAdvisorPage() {
     }
 
     return list.slice(0, 5);
-  }, [advice, unclassifiedCount, warningBudgets]);
+  }, [advice, hasAdvice, unclassifiedCount, warningBudgets]);
 
   // Status Badge Label & Color (Requirement 7)
   const sourceBadge = useMemo(() => {
@@ -441,6 +453,13 @@ export default function AiAdvisorPage() {
         colorClass: "bg-rose-50 text-rose-700 border-rose-100",
       };
     }
+    if (!hasAdvice) {
+      return {
+        label: "Chưa phân tích",
+        colorClass: "bg-slate-50 text-slate-600 border-slate-200",
+      };
+    }
+
     const prov = advice?.provider || (advice?.source === "gemini" ? "GEMINI" : "RULE_BASED");
     if (prov === "GEMINI") {
       return {
@@ -452,7 +471,7 @@ export default function AiAdvisorPage() {
       label: "Phân tích nhanh · RULE_BASED",
       colorClass: "bg-amber-50 text-amber-700 border-amber-100",
     };
-  }, [advice, error]);
+  }, [advice, error, hasAdvice]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
@@ -472,21 +491,6 @@ export default function AiAdvisorPage() {
       if (m === 12) { setYear((y) => y + 1); return 1; }
       return m + 1;
     });
-  };
-
-  const triggerChatbot = (queryText: string) => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("open-chatbot", { detail: { query: queryText } })
-      );
-    }
-  };
-
-  const handleAskSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!askInput.trim()) return;
-    triggerChatbot(askInput);
-    setAskInput("");
   };
 
   // ─── Render Skeletons ──────────────────────────────────────────────────────
@@ -872,7 +876,12 @@ export default function AiAdvisorPage() {
                 <Bot className="h-5.5 w-5.5" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-none">
+                {!hasAdvice ? (
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-none">
+                    Chưa phân tích
+                  </p>
+                ) : null}
+                <p className={`text-[10px] font-bold uppercase tracking-widest text-slate-400 leading-none ${hasAdvice ? "" : "hidden"}`}>
                   {advice?.provider || (advice?.source === "gemini" ? "GEMINI" : "RULE_BASED")} · vừa cập nhật
                 </p>
                 <p className="text-[9px] font-bold text-emerald-400 mt-1 block">
@@ -881,7 +890,12 @@ export default function AiAdvisorPage() {
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-300 font-semibold leading-relaxed mt-4">
+            {!hasAdvice ? (
+              <p className="text-[11px] text-slate-300 font-semibold leading-relaxed mt-4">
+                Chưa có kết quả phân tích cho kỳ này. Bấm “Phân tích với AI” để tạo lời khuyên mới.
+              </p>
+            ) : null}
+            <p className={`text-[11px] text-slate-300 font-semibold leading-relaxed mt-4 ${hasAdvice ? "" : "hidden"}`}>
               {advice?.source === "gemini"
                 ? `Đang dùng Gemini Pro để phân tích dữ liệu tài chính ${month}/${year} của bạn.`
                 : "Đang sử dụng bộ quy tắc mặc định để phân tích dữ liệu và tư vấn tài chính."}

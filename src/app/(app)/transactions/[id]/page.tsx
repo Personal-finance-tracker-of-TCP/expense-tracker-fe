@@ -118,6 +118,7 @@ export default function TransactionDetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [classifyCategoryId, setClassifyCategoryId] = useState("");
   const [isClassifyOpen, setIsClassifyOpen] = useState(false);
+  const [isExcludeConfirmOpen, setIsExcludeConfirmOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [classifying, setClassifying] = useState(false);
   const [excluding, setExcluding] = useState(false);
@@ -206,6 +207,7 @@ export default function TransactionDetailPage() {
         { method: "PATCH" }
       );
       setTransaction(updated);
+      setIsExcludeConfirmOpen(false);
       toast.success("Đã bỏ qua giao dịch.");
     } catch {
       toast.error("Không thể bỏ qua giao dịch. Vui lòng thử lại.");
@@ -307,7 +309,7 @@ export default function TransactionDetailPage() {
           {canExclude ? (
             <button
               type="button"
-              onClick={() => void handleExclude()}
+              onClick={() => setIsExcludeConfirmOpen(true)}
               disabled={excluding || deleting}
               className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             >
@@ -499,6 +501,76 @@ export default function TransactionDetailPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {isExcludeConfirmOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-3 border-b border-slate-100 pb-4 dark:border-slate-700">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <Ban className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                  Bỏ qua giao dịch?
+                </h2>
+                <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-300">
+                  Giao dịch vẫn được giữ trong lịch sử nhưng không tính vào báo cáo.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Nội dung
+                </span>
+                <span className="text-right font-bold text-slate-950 dark:text-white">
+                  {content}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Số tiền
+                </span>
+                <span className="font-bold text-slate-950 dark:text-white">
+                  {isIncome ? "+" : "-"}
+                  {formatCurrencyVND(transaction.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Ngày
+                </span>
+                <span className="font-bold text-slate-950 dark:text-white">
+                  {formatDateTime(transaction.transactionDate ?? transaction.date)}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsExcludeConfirmOpen(false)}
+                disabled={excluding}
+                className="h-11 rounded-full border border-teal-100 px-5 text-sm font-black text-slate-600 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExclude()}
+                disabled={excluding}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950"
+              >
+                {excluding ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {excluding ? "Đang bỏ qua..." : "Xác nhận bỏ qua"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </main>

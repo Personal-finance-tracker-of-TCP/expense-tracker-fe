@@ -2,25 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle,
   BadgeDollarSign,
   CircleDot,
-  Loader2,
   Palette,
-
   Pencil,
   Tag,
   Tags,
   Trash2,
   Utensils,
-  Plus,
-  RefreshCw,
-
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { toast } from "sonner";
 
-import type { Category } from "@/components/categories/CategoryCard";
+import {
+  isPersonalCategory,
+  type Category,
+} from "@/components/categories/CategoryCard";
 import {
   CategoryFormModal,
   type CategoryFormData,
@@ -105,14 +100,23 @@ export default function CategoriesPage() {
 
   const filteredCategories = useMemo(() => {
     const keyword = search.trim().toLowerCase();
-    if (!keyword) return categories;
-    return categories.filter((category) =>
-      [category.name, category.type, category.color]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(keyword)
-    );
+    const nextCategories = keyword
+      ? categories.filter((category) =>
+          [category.name, category.type, category.color]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(keyword)
+        )
+      : categories;
+
+    return [...nextCategories].sort((a, b) => {
+      const personalSort =
+        Number(isPersonalCategory(b)) - Number(isPersonalCategory(a));
+
+      if (personalSort !== 0) return personalSort;
+      return a.name.localeCompare(b.name, "vi");
+    });
   }, [categories, search]);
 
   const stats = useMemo(() => {
@@ -147,6 +151,11 @@ export default function CategoriesPage() {
   }
 
   function openEditModal(category: Category) {
+    if (!isPersonalCategory(category)) {
+      setError("Chỉ có thể sửa danh mục cá nhân.");
+      return;
+    }
+
     setEditCategory(category);
     setIsModalOpen(true);
   }
@@ -156,6 +165,11 @@ export default function CategoriesPage() {
     setError(null);
     try {
       if (editCategory) {
+        if (!isPersonalCategory(editCategory)) {
+          setError("Chỉ có thể sửa danh mục cá nhân.");
+          return;
+        }
+
         await authFetch(`/api/categories/${editCategory.id}`, {
           method: "PUT",
           body: JSON.stringify(data),
@@ -180,6 +194,11 @@ export default function CategoriesPage() {
   }
 
   async function handleDelete(category: Category) {
+    if (!isPersonalCategory(category)) {
+      setError("Chỉ có thể xóa danh mục cá nhân.");
+      return;
+    }
+
     if (!window.confirm(`Xóa danh mục "${category.name}"?`)) {
       return;
     }
@@ -196,7 +215,7 @@ export default function CategoriesPage() {
 
   const tableRows = filteredCategories.map((category) => {
     const usageCount = usageByCategory[category.id] || 0;
-    const personal = !!category.userId && !category.isDefault;
+    const personal = isPersonalCategory(category);
 
     return {
       cells: [
@@ -207,7 +226,7 @@ export default function CategoriesPage() {
       ],
       status: personal ? "Cá nhân" : "Mặc định",
       tone: personal ? "bg-blue-50 text-blue-700" : "bg-teal-50 text-teal-700",
-      actions: (
+      actions: personal ? (
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -226,7 +245,7 @@ export default function CategoriesPage() {
             Xóa
           </button>
         </div>
-      ),
+      ) : null,
     };
   });
 
