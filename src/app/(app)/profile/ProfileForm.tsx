@@ -3,6 +3,7 @@
 import {
   type ChangeEvent,
   useActionState,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -40,6 +41,10 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 
 const PROFILE_DETAILS_EVENT = "fintrack-profile-details";
+const BANKHUB_PENDING_SYNC_KEY = "fintrack-bankhub-pending-sync";
+const BANKHUB_PENDING_SYNC_ATTEMPTS_KEY = "fintrack-bankhub-pending-sync-attempts";
+const BANKHUB_SYNC_RETRY_DELAY_MS = 10_000;
+const BANKHUB_MAX_PENDING_SYNC_ATTEMPTS = 3;
 
 const initialState: ProfileActionState = {
   status: "idle",
@@ -59,19 +64,30 @@ type BankHubStatus = {
   linked?: boolean;
   isLinked?: boolean;
   status?: string;
+  message?: string;
+  bankhubAccountXid?: string | null;
   bankName?: string | null;
   accountNumber?: string | null;
+  bankAccountNumber?: string | null;
   accountName?: string | null;
+  bankAccountName?: string | null;
+  sepayLinkedAt?: string | null;
   bankhubAccount?: {
+    bankhubAccountXid?: string | null;
     bankName?: string | null;
     accountNumber?: string | null;
+    bankAccountNumber?: string | null;
     accountName?: string | null;
+    bankAccountName?: string | null;
     status?: string | null;
   } | null;
   account?: {
+    bankhubAccountXid?: string | null;
     bankName?: string | null;
     accountNumber?: string | null;
+    bankAccountNumber?: string | null;
     accountName?: string | null;
+    bankAccountName?: string | null;
     status?: string | null;
   } | null;
 };
@@ -82,6 +98,7 @@ type BankHubHostedLink = {
   linkToken?: string;
   xid?: string;
   expiresAt?: string;
+  redirectUrlAccepted?: boolean;
 };
 
 const emptyDetails: ProfileDetails = {
@@ -216,14 +233,63 @@ function formatDate(value: string) {
 
 function normalizeBankHubStatus(status: BankHubStatus | null) {
   const account = status?.bankhubAccount ?? status?.account ?? status;
+  const bankhubAccountXid =
+    account?.bankhubAccountXid || status?.bankhubAccountXid || "";
+  const accountNumber =
+    account?.accountNumber ||
+    account?.bankAccountNumber ||
+    status?.accountNumber ||
+    status?.bankAccountNumber ||
+    "";
+  const accountName =
+    account?.accountName ||
+    account?.bankAccountName ||
+    status?.accountName ||
+    status?.bankAccountName ||
+    "";
+  const explicitLinked = status?.linked ?? status?.isLinked;
 
   return {
-    linked: Boolean(status?.linked ?? status?.isLinked ?? account?.accountNumber),
+    linked:
+      typeof explicitLinked === "boolean"
+        ? explicitLinked
+        : Boolean(bankhubAccountXid || accountNumber),
+    bankhubAccountXid,
     bankName: account?.bankName || "BankHub",
-    accountNumber: account?.accountNumber || "",
-    accountName: account?.accountName || "",
+    accountNumber,
+    accountName,
+    sepayLinkedAt: status?.sepayLinkedAt || "",
     status: account?.status || status?.status || "",
   };
+}
+
+function getBankHubCallbackUrl() {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/profile/bankhub/callback`;
+}
+
+function getPendingSyncAttempts() {
+  if (typeof window === "undefined") return 0;
+
+  const attempts = Number(
+    window.sessionStorage.getItem(BANKHUB_PENDING_SYNC_ATTEMPTS_KEY) || "0"
+  );
+
+  return Number.isFinite(attempts) ? attempts : 0;
+}
+
+function setPendingSyncAttempts(attempts: number) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(
+    BANKHUB_PENDING_SYNC_ATTEMPTS_KEY,
+    String(attempts)
+  );
+}
+
+function clearPendingBankHubSync() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(BANKHUB_PENDING_SYNC_KEY);
+  window.sessionStorage.removeItem(BANKHUB_PENDING_SYNC_ATTEMPTS_KEY);
 }
 
 export function ProfileForm({ user }: { user: User }) {
@@ -251,6 +317,8 @@ export function ProfileForm({ user }: { user: User }) {
   const [balanceError, setBalanceError] = useState<string | null>(null);
   const [balanceMessage, setBalanceMessage] = useState<string | null>(null);
   const displayUser = localUser;
+  const bankHubSyncingRef = useRef(false);
+  const bankHubLastSyncAtRef = useRef(0);
   const storedDetails = useSyncExternalStore(
     subscribeProfileDetails,
     () => readProfileDetails(displayUser.id),
@@ -260,6 +328,73 @@ export function ProfileForm({ user }: { user: User }) {
   const initials = getInitials(displayUser.name, displayUser.email);
   const hasDetails = Object.values(storedDetails).some(Boolean);
   const bankHub = normalizeBankHubStatus(bankHubStatus);
+
+  const applyBankHubStatus = useCallback(
+    (status: BankHubStatus | null) => {
+      setBankHubStatus(status);
+
+      const normalized = normalizeBankHubStatus(status);
+      if (!normalized.linked) return;
+
+      const userPatch = {
+        bankhubAccountXid: normalized.bankhubAccountXid || null,
+        bankAccountNumber: normalized.accountNumber || null,
+        bankName: normalized.bankName || null,
+        bankAccountName: normalized.accountName || null,
+        sepayLinkedAt: normalized.sepayLinkedAt || new Date().toISOString(),
+      };
+
+      setLocalUser((current) => ({ ...current, ...userPatch }));
+      updateStoredUser(userPatch);
+    },
+    [updateStoredUser]
+  );
+
+  const syncBankHubAccount = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (bankHubSyncingRef.current) {
+        return false;
+      }
+
+      bankHubSyncingRef.current = true;
+
+      if (!options.silent) {
+        setBankHubLoading(true);
+      }
+      setBankHubError(null);
+
+      try {
+        const synced = await authFetch<BankHubStatus>(
+          "/api/bankhub/sync-linked-account",
+          { method: "POST" }
+        );
+        applyBankHubStatus(synced);
+
+        const normalized = normalizeBankHubStatus(synced);
+        if (normalized.linked) {
+          clearPendingBankHubSync();
+          return true;
+        }
+
+        setBankHubError(
+          synced.message ||
+            "Chưa tìm thấy tài khoản BankHub mới. Vui lòng thử lại sau khi hoàn tất liên kết."
+        );
+        return false;
+      } catch (err) {
+        setBankHubError(
+          err instanceof Error ? err.message : "Không thể đồng bộ tài khoản BankHub"
+        );
+        return false;
+      } finally {
+        bankHubLastSyncAtRef.current = Date.now();
+        bankHubSyncingRef.current = false;
+        setBankHubLoading(false);
+        setBankHubLinking(false);
+      }
+    },
+    [applyBankHubStatus]
+  );
 
   useEffect(() => {
     if (state.status === "success" && state.user) {
@@ -286,12 +421,37 @@ export function ProfileForm({ user }: { user: User }) {
   useEffect(() => {
     let ignore = false;
 
+    async function syncIfPending() {
+      if (ignore || typeof window === "undefined") return;
+
+      const hasPendingSync =
+        window.sessionStorage.getItem(BANKHUB_PENDING_SYNC_KEY) === "1" ||
+        window.location.search.includes("bankhub=callback");
+
+      if (hasPendingSync) {
+        const attempts = getPendingSyncAttempts();
+        const now = Date.now();
+        const recentlySynced =
+          now - bankHubLastSyncAtRef.current < BANKHUB_SYNC_RETRY_DELAY_MS;
+
+        if (recentlySynced || attempts >= BANKHUB_MAX_PENDING_SYNC_ATTEMPTS) {
+          if (attempts >= BANKHUB_MAX_PENDING_SYNC_ATTEMPTS) {
+            clearPendingBankHubSync();
+          }
+          return;
+        }
+
+        setPendingSyncAttempts(attempts + 1);
+        await syncBankHubAccount({ silent: true });
+      }
+    }
+
     async function loadBankHubStatus() {
       setBankHubLoading(true);
       setBankHubError(null);
       try {
         const status = await authFetch<BankHubStatus>("/api/bankhub/status");
-        if (!ignore) setBankHubStatus(status);
+        if (!ignore) applyBankHubStatus(status);
       } catch (err) {
         if (!ignore) {
           setBankHubError(
@@ -301,14 +461,20 @@ export function ProfileForm({ user }: { user: User }) {
       } finally {
         if (!ignore) setBankHubLoading(false);
       }
+
+      await syncIfPending();
     }
 
     void loadBankHubStatus();
+    window.addEventListener("focus", syncIfPending);
+    window.addEventListener("pageshow", syncIfPending);
 
     return () => {
       ignore = true;
+      window.removeEventListener("focus", syncIfPending);
+      window.removeEventListener("pageshow", syncIfPending);
     };
-  }, []);
+  }, [applyBankHubStatus, syncBankHubAccount]);
 
   async function handleBankHubLink() {
     setBankHubLinking(true);
@@ -316,6 +482,7 @@ export function ProfileForm({ user }: { user: User }) {
     try {
       const data = await authFetch<BankHubHostedLink>("/api/bankhub/hosted-link", {
         method: "POST",
+        body: JSON.stringify({ returnUrl: getBankHubCallbackUrl() }),
       });
       const url = data.hostedLinkUrl || data.hosted_link_url;
 
@@ -323,8 +490,11 @@ export function ProfileForm({ user }: { user: User }) {
         throw new Error("Backend khong tra hostedLinkUrl");
       }
 
+      window.sessionStorage.setItem(BANKHUB_PENDING_SYNC_KEY, "1");
+      setPendingSyncAttempts(0);
       window.location.assign(url);
     } catch (err) {
+      clearPendingBankHubSync();
       setBankHubError(
         err instanceof Error ? err.message : "Khong the tao link BankHub"
       );
