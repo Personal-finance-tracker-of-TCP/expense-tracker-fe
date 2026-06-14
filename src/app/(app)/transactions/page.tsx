@@ -5,6 +5,7 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Ban,
   CalendarRange,
   CreditCard,
   Loader2,
@@ -114,6 +115,7 @@ export default function TransactionsPage() {
   const [classifyTarget, setClassifyTarget] = useState<Transaction | null>(null);
   const [classifyCategoryId, setClassifyCategoryId] = useState("");
   const [classifying, setClassifying] = useState(false);
+  const [excludeTarget, setExcludeTarget] = useState<Transaction | null>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
 
 
@@ -233,14 +235,14 @@ export default function TransactionsPage() {
         }),
       });
 
-      setNotice("Da tao giao dich");
+      setNotice("Đã tạo giao dịch");
       setIsFormOpen(false);
       setFormAmount("");
       setFormNote("");
       await loadData();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Khong the tao giao dich"
+        err instanceof Error ? err.message : "Không thể tạo giao dịch"
       );
     } finally {
       setSubmitting(false);
@@ -278,17 +280,14 @@ export default function TransactionsPage() {
   }
 
   async function handleExcludeTransaction(transaction: Transaction) {
-    const confirmed = window.confirm(
-      "Bỏ qua giao dịch này khỏi báo cáo? Giao dịch vẫn được giữ trong lịch sử."
-    );
-    if (!confirmed) return;
-
     setExcludingId(transaction.id);
     setError(null);
     try {
       await authFetch(`/api/transactions/${transaction.id}/exclude`, {
         method: "PATCH",
       });
+      setNotice("Đã bỏ qua giao dịch khỏi báo cáo");
+      setExcludeTarget(null);
       await loadData();
     } catch (err) {
       setError(
@@ -337,7 +336,7 @@ export default function TransactionsPage() {
           {canExclude ? (
             <button
             type="button"
-            onClick={() => void handleExcludeTransaction(transaction)}
+            onClick={() => setExcludeTarget(transaction)}
             disabled={excludingId === transaction.id}
             className="inline-flex h-8 items-center rounded-full bg-slate-100 px-3 text-xs font-black text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
             title="Bỏ qua, không tính giao dịch này vào báo cáo"
@@ -417,7 +416,7 @@ export default function TransactionsPage() {
           },
           {
             label: "Tự động",
-            value: `${totals.automatic} muc`,
+            value: `${totals.automatic} mục`,
             helper: "Nguồn đồng bộ ngân hàng",
             progress:
               transactions.length > 0
@@ -668,6 +667,86 @@ export default function TransactionsPage() {
               </button>
             </div>
           </form>
+        </div>
+      ) : null}
+
+      {excludeTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/80 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4 dark:border-slate-700">
+              <div className="flex items-start gap-3">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  <Ban className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <h2 className="text-xl font-black text-slate-950 dark:text-white">
+                    Bỏ qua giao dịch?
+                  </h2>
+                  <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-300">
+                    Giao dịch vẫn được giữ trong lịch sử nhưng không tính vào báo cáo.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="flex size-10 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200"
+                onClick={() => setExcludeTarget(null)}
+                disabled={excludingId === excludeTarget.id}
+                aria-label="Đóng"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Nội dung
+                </span>
+                <span className="text-right font-bold text-slate-950 dark:text-white">
+                  {excludeTarget.note || excludeTarget.description || "Giao dịch"}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Số tiền
+                </span>
+                <span className="font-bold text-slate-950 dark:text-white">
+                  {signedAmount(excludeTarget)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  Ngày
+                </span>
+                <span className="font-bold text-slate-950 dark:text-white">
+                  {formatDate(excludeTarget.transactionDate ?? excludeTarget.date)}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setExcludeTarget(null)}
+                disabled={excludingId === excludeTarget.id}
+                className="h-11 rounded-full border border-teal-100 px-5 text-sm font-black text-slate-600 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExcludeTransaction(excludeTarget)}
+                disabled={excludingId === excludeTarget.id}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-slate-900 px-5 text-sm font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-950"
+              >
+                {excludingId === excludeTarget.id ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : null}
+                {excludingId === excludeTarget.id ? "Đang bỏ qua..." : "Xác nhận bỏ qua"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </>
